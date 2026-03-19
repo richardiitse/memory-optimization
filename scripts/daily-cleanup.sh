@@ -1,6 +1,7 @@
 #!/bin/bash
 # Daily Memory Cleanup Script (Simplified)
 # 📅 Created: 2026-03-12
+# 📅 Updated: 2026-03-19 - Fixed hardcoded paths for cross-platform compatibility
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -8,9 +9,18 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-MEM_DIR="/root/.openclaw/workspace/memory"
+# 跨平台路径配置
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT="$(dirname "$SCRIPT_DIR")"
+MEM_DIR="${WORKSPACE_ROOT}/memory"
 TODAY=$(date +%Y-%m-%d)
-YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+
+# macOS/Linux 兼容的日期计算
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    YESTERDAY=$(date -v-1d +%Y-%m-%d)
+else
+    YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+fi
 
 echo -e "${BLUE}=== Daily Memory Cleanup ===${NC}"
 echo -e "${BLUE}Date: $(date +%Y-%m-%d)${NC}"

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull:*)",
+      "Read(//Users/rongchuanxie/.claude/skills/gstack/**)",
+      "Bash(./setup)"
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Memory System Test - Test recovery after compression
 # 📅 Created: 2026-03-12
+# 📅 Updated: 2026-03-19 - Fixed hardcoded paths for cross-platform compatibility
 # 🏷️ Tags: #test #memory #compression #recovery
 
 RED='\033[0;31m'
@@ -9,7 +10,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-MEM_DIR="/root/.openclaw/workspace/memory"
+# 跨平台路径配置
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT="$(dirname "$SCRIPT_DIR")"
+MEM_DIR="${WORKSPACE_ROOT}/memory"
 TODAY=$(date +%Y-%m-%d)
 
 echo -e "${BLUE}=== Memory System Recovery Test ===${NC}"
@@ -142,35 +146,37 @@ fi
 
 echo ""
 
+HEARTBEAT_FILE="${WORKSPACE_ROOT}/HEARTBEAT.md"
+
 # Test 5: HEARTBEAT Integration
 echo -e "${YELLOW}▶ Test 5: HEARTBEAT Integration${NC}"
 echo -e "${BLUE}---${NC}"
 
-if [ -f "HEARTBEAT.md" ]; then
+if [ -f "$HEARTBEAT_FILE" ]; then
     echo -e "${BLUE}Checking HEARTBEAT.md memory checklist...${NC}"
 
     # Check for memory checklist
-    if grep -q "Memory Management Checklist" HEARTBEAT.md 2>/dev/null; then
+    if grep -q "Memory Management Checklist" "$HEARTBEAT_FILE" 2>/dev/null; then
         echo -e "${GREEN}✅ HEARTBEAT.md has memory checklist${NC}"
     else
         echo -e "${YELLOW}⚠ HEARTBEAT.md missing memory checklist${NC}"
     fi
 
     # Check for session start routine
-    if grep -q "Read SOUL.md" HEARTBEAT.md 2>/dev/null; then
+    if grep -q "Read SOUL.md" "$HEARTBEAT_FILE" 2>/dev/null; then
         echo -e "${GREEN}✅ HEARTBEAT.md has session start routine${NC}"
     else
         echo -e "${YELLOW}⚠ HEARTBEAT.md missing session start routine${NC}"
     fi
 
     # Check for daily cleanup
-    if grep -q "Daily Cleanup" HEARTBEAT.md 2>/dev/null; then
+    if grep -q "Daily Cleanup" "$HEARTBEAT_FILE" 2>/dev/null; then
         echo -e "${GREEN}✅ HEARTBEAT.md has daily cleanup${NC}"
     else
         echo -e "${YELLOW}⚠ HEARTBEAT.md missing daily cleanup${NC}"
     fi
 else
-    echo -e "${YELLOW}⚠ HEARTBEAT.md not found${NC}"
+    echo -e "${YELLOW}⚠ HEARTBEAT.md not found at $HEARTBEAT_FILE${NC}"
 fi
 
 echo ""

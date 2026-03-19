@@ -25,7 +25,7 @@ import yaml
 # 路径配置 - 使用绝对路径
 SCRIPT_DIR = Path(__file__).parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
-ONTOLOGY_DIR = WORKSPACE_ROOT / "memory" / "ontology"
+ONTOLOGY_DIR = WORKSPACE_ROOT / "ontology"
 GRAPH_FILE = ONTOLOGY_DIR / "graph.jsonl"
 SCHEMA_FILE = ONTOLOGY_DIR / "memory-schema.yaml"
 BASE_SCHEMA_FILE = ONTOLOGY_DIR / "schema.yaml"
