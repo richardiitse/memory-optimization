@@ -60,6 +60,30 @@ python3 scripts/memory_ontology.py validate
 python3 scripts/memory_ontology.py stats
 ```
 
+### KG Extractor (从会话中提取实体)
+```bash
+# Dry-run 测试（不写入 KG）
+python3 scripts/kg_extractor.py --agents-dir agents/ --dry-run
+
+# 处理所有会话，批量写入 KG
+python3 scripts/kg_extractor.py --agents-dir agents/
+
+# 限制处理文件数（用于测试）
+python3 scripts/kg_extractor.py --agents-dir agents/ --limit 5
+
+# 指定模型和 API
+python3 scripts/kg_extractor.py --agents-dir agents/ --model glm-5 --api-key your-key
+
+# 输出报告到文件
+python3 scripts/kg_extractor.py --agents-dir agents/ --output report.json
+```
+
+### Run Tests
+```bash
+# Run KG extractor tests
+python3 -m pytest tests/test_kg_extractor.py -v
+```
+
 ### Grep Search
 ```bash
 grep -r "#memory" memory/
