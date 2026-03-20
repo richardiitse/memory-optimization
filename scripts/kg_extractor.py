@@ -20,13 +20,16 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any, Union
 from dataclasses import dataclass, field
 
-# 导入 memory_ontology 的函数
-sys.path.insert(0, str(Path(__file__).parent))
-from memory_ontology import create_entity, load_schema, validate_entity
+# 导入 memory_ontology 的函数 (在 main() 中动态导入以支持 KG_DIR)
 
 # 路径配置
 SCRIPT_DIR = Path(__file__).parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
+
+# 默认配置
+DEFAULT_KG_DIR = ""  # 开发环境使用 ontology/
+DEFAULT_API_KEY = ""  # 从环境变量 OPENAI_API_KEY 读取
+DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 
 
 # ========== 数据模型 ==========
@@ -244,13 +247,13 @@ class LLMClient:
     def __init__(self, model: str = "glm-5", api_key: str = None,
                  base_url: str = None):
         self.model = model
-        self.api_key = api_key or os.environ.get('OPENAI_API_KEY', '')
-        self.base_url = base_url or os.environ.get('OPENAI_BASE_URL',
-            'https://open.bigmodel.cn/api/paas/v4')
+        self.api_key = api_key or os.environ.get('OPENAI_API_KEY', DEFAULT_API_KEY)
+        self.base_url = base_url or os.environ.get('OPENAI_BASE_URL', DEFAULT_BASE_URL)
 
     def call(self, messages: List[Dict], temperature: float = 0.7) -> Optional[str]:
         """调用 LLM"""
-        if not self.api_key:
+        api_key = self.api_key or os.environ.get('OPENAI_API_KEY', '')
+        if not api_key:
             print("Warning: No API key configured, using mock response")
             return self._mock_response(messages)
 
@@ -258,7 +261,7 @@ class LLMClient:
             import requests
 
             headers = {
-                'Authorization': f'Bearer {self.api_key}',
+                'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json'
             }
 
@@ -348,8 +351,11 @@ EXTRACTION_PROMPT = """你是一个知识提取专家。分析以下对话，提
 class EntityExtractor:
     """实体提取器"""
 
-    def __init__(self, client: LLMClient):
+    def __init__(self, client: LLMClient,
+                 create_entity_fn=None, validate_entity_fn=None):
         self.client = client
+        self._create_entity = create_entity_fn
+        self._validate_entity = validate_entity_fn
 
     def extract(self, conversation: Conversation, dry_run: bool = False) -> List[ExtractedEntity]:
         """从会话中提取实体"""
@@ -492,7 +498,7 @@ class EntityExtractor:
                     props['status'] = 'pending'
 
                 # 验证实体
-                errors = validate_entity(entity_type, props)
+                errors = self._validate_entity(entity_type, props)
                 if errors:
                     print(f"  Warning: Validation failed for {item.get('title')}: {errors}")
                     continue
@@ -500,7 +506,7 @@ class EntityExtractor:
                 # 写入 KG（如果不是 dry-run）
                 if not dry_run:
                     try:
-                        entity = create_entity(entity_type, props)
+                        entity = self._create_entity(entity_type, props)
                         print(f"  ✓ Created {entity_type}: {props['title']}")
                     except Exception as e:
                         print(f"  ✗ Failed to create entity: {e}")
@@ -622,6 +628,12 @@ def main():
     )
 
     parser.add_argument(
+        '--kg-dir',
+        default='',
+        help='知识图谱目录 (默认: ontology/, 生产: /root/.openclaw/workspace/memory/ontology/)'
+    )
+
+    parser.add_argument(
         '--model', '-m',
         default='glm-5',
         help='LLM 模型名称'
@@ -629,7 +641,7 @@ def main():
 
     parser.add_argument(
         '--api-key',
-        default=None,
+        default='',
         help='API Key (默认从环境变量 OPENAI_API_KEY 读取)'
     )
 
@@ -667,6 +679,19 @@ def main():
 
     args = parser.parse_args()
 
+    # 设置知识图谱目录（必须在导入 memory_ontology 之前）
+    if args.kg_dir:
+        os.environ['KG_DIR'] = str(args.kg_dir)
+        print(f"   KG目录: {args.kg_dir}")
+    else:
+        print(f"   KG目录: {WORKSPACE_ROOT / 'ontology'} (默认)")
+
+    # 重新导入以应用 KG_DIR 配置
+    if 'memory_ontology' in sys.modules:
+        del sys.modules['memory_ontology']
+    sys.path.insert(0, str(SCRIPT_DIR))
+    from memory_ontology import create_entity, load_schema, validate_entity
+
     print("🚀 KG Extractor")
     print(f"   Agents目录: {args.agents_dir}")
     print(f"   模型: {args.model}")
@@ -679,7 +704,7 @@ def main():
         base_url=args.base_url
     )
 
-    extractor = EntityExtractor(llm_client)
+    extractor = EntityExtractor(llm_client, create_entity, validate_entity)
     processor = BatchProcessor(extractor)
 
     # 处理

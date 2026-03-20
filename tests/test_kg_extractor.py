@@ -115,7 +115,9 @@ class TestEntityExtractor:
             ]
         })
 
-        extractor = EntityExtractor(client)
+        mock_validate = Mock(return_value=[])
+        mock_create = Mock()
+        extractor = EntityExtractor(client, mock_create, mock_validate)
 
         conversation = Conversation(
             session_id="test-session",
@@ -133,7 +135,9 @@ class TestEntityExtractor:
     def test_parse_response_invalid_json(self):
         """测试解析无效 JSON"""
         client = Mock()
-        extractor = EntityExtractor(client)
+        mock_validate = Mock(return_value=[])
+        mock_create = Mock()
+        extractor = EntityExtractor(client, mock_create, mock_validate)
 
         entities = extractor._parse_response("not valid json", "test-session", dry_run=True)
         assert len(entities) == 0
