@@ -22,13 +22,13 @@ from pathlib import Path
 from typing import Optional, Dict, List, Any
 import yaml
 
-# 路径配置 - 使用绝对路径
+# 路径配置 - 支持 KG_DIR 环境变量
+# 开发环境: ontology/ (相对路径)
+# 生产环境: /root/.openclaw/workspace/memory/ontology/
 SCRIPT_DIR = Path(__file__).parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
-
-# 支持全局 KG 路径 (通过环境变量配置)
-DEFAULT_ONTOLOGY_PATH = os.environ.get('MEMORY_ONTOLOGY_PATH', '/root/.openclaw/workspace/memory/ontology')
-ONTOLOGY_DIR = Path(DEFAULT_ONTOLOGY_PATH)
+_kg_dir = os.environ.get('KG_DIR', '')  # 可配置的知识图谱目录
+ONTOLOGY_DIR = Path(_kg_dir) if _kg_dir else WORKSPACE_ROOT / "ontology"
 GRAPH_FILE = ONTOLOGY_DIR / "graph.jsonl"
 SCHEMA_FILE = ONTOLOGY_DIR / "memory-schema.yaml"
 BASE_SCHEMA_FILE = ONTOLOGY_DIR / "schema.yaml"
