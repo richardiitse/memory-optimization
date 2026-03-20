@@ -25,7 +25,10 @@ import yaml
 # 路径配置 - 使用绝对路径
 SCRIPT_DIR = Path(__file__).parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
-ONTOLOGY_DIR = WORKSPACE_ROOT / "ontology"
+
+# 支持全局 KG 路径 (通过环境变量配置)
+DEFAULT_ONTOLOGY_PATH = os.environ.get('MEMORY_ONTOLOGY_PATH', '/root/.openclaw/workspace/memory/ontology')
+ONTOLOGY_DIR = Path(DEFAULT_ONTOLOGY_PATH)
 GRAPH_FILE = ONTOLOGY_DIR / "graph.jsonl"
 SCHEMA_FILE = ONTOLOGY_DIR / "memory-schema.yaml"
 BASE_SCHEMA_FILE = ONTOLOGY_DIR / "schema.yaml"
