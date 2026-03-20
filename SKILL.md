@@ -1,6 +1,6 @@
 ---
 name: memory-optimization
-version: 1.0.0
+version: 1.0.2
 license: MIT
 description: |
   Comprehensive memory management optimization for AI agents. Use when: (1) Agent experiences context compression amnesia, (2) Need to rebuild context quickly after session restart, (3) Want structured memory system with TL;DR summaries, (4) Need automated daily memory maintenance, (5) Want to implement knowledge graph for entity management, or (6) Building agent memory system from scratch.
@@ -174,6 +174,17 @@ python3 scripts/memory_ontology.py query --tags "#memory" "#decision"
 
 # Get related entities
 python3 scripts/memory_ontology.py related --id dec_xxx
+```
+
+## Environment Variables
+
+```bash
+# GLM API 配置 (用于 kg_extractor.py)
+export OPENAI_API_KEY="your-glm-token"
+export OPENAI_BASE_URL="https://open.bigmodel.cn/api/paas/v4"
+
+# 全局 KG 路径 (可选，默认使用 ~/.openclaw/workspace/memory/ontology)
+export MEMORY_ONTOLOGY_PATH="/root/.openclaw/workspace/memory/ontology"
 ```
 
 ## Next Steps

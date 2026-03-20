@@ -1,5 +1,5 @@
-# Agent session data - local only, contains sensitive info
-agents/
+__pycache__/
+*.pyc
+.eggs/
+*.egg-info/
 
-# Knowledge graph data - local only
-ontology/graph.jsonl
