@@ -1,2 +1,5 @@
 # Agent session data - local only, contains sensitive info
 agents/
+
+# Knowledge graph data - local only
+ontology/graph.jsonl
