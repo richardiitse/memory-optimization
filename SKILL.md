@@ -94,6 +94,7 @@ See [scripts/README.md](scripts/README.md) for detailed usage:
 - `daily-cleanup.sh` - 3-minute daily memory maintenance
 - `test-memory-system.sh` - Verify all improvements working
 - `memory_ontology.py` - Knowledge Graph management tool
+- `kg_extractor.py` - KG extraction from agent sessions (LLM-driven)
 
 ## References
 

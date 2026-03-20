@@ -102,10 +102,21 @@ grep "#decision" memory/*.md
 ```
 memory-optimization/
 ├── SKILL.md                    # Core skill definition
+├── SKILL-SUMMARY.md            # Skill summary for quick reference
+├── TODOS.md                    # Project TODOs
+├── CLAUDE.md                   # This file
 ├── scripts/
 │   ├── daily-cleanup.sh        # 3-minute daily maintenance
 │   ├── test-memory-system.sh   # Testing framework (6 tests)
-│   └── memory_ontology.py      # KG management tool
+│   ├── kg_extractor.py         # KG extraction from agent sessions
+│   ├── memory_ontology.py      # KG management tool
+│   └── README.md               # Scripts documentation
+├── tests/
+│   └── test_kg_extractor.py   # KG extractor unit tests
+├── ontology/
+│   ├── memory-schema.yaml      # KG entity schema
+│   ├── graph.jsonl             # KG data (gitignored)
+│   └── *.md                    # Ontology documentation
 └── references/
     ├── implementation.md       # Complete implementation guide
     ├── templates.md            # TL;DR, three-file, rolling summary templates
