@@ -3,3 +3,9 @@ __pycache__/
 .eggs/
 *.egg-info/
 
+# 环境变量
+.env
+.env.local
+
+# 参考文献目录（本地参考资料）
+references/
