@@ -46,6 +46,25 @@ types:
       related_projects:
         type: array
         description: "相关项目 ID 列表"
+      strength:
+        type: number
+        default: 1.0
+        description: "记忆强度 (0.0-1.0)"
+      decay_rate:
+        type: number
+        default: 0.95
+        description: "衰减率，Decision 默认 0.95/月"
+      last_accessed:
+        type: string
+        description: "最后访问时间 (ISO 8601)"
+      provenance:
+        type: array
+        description: "来源追踪 ['session:xxx', 'inference:yyy']"
+      source_trust:
+        type: string
+        enum: ["high", "medium", "low"]
+        default: "medium"
+        description: "来源信任度"
 
   Finding:
     required: [title, content, discovered_at]
@@ -85,6 +104,25 @@ types:
       related_decisions:
         type: array
         description: "相关决策 ID 列表"
+      strength:
+        type: number
+        default: 1.0
+        description: "记忆强度 (0.0-1.0)"
+      decay_rate:
+        type: number
+        default: 0.80
+        description: "衰减率，Finding 默认 0.80/月"
+      last_accessed:
+        type: string
+        description: "最后访问时间 (ISO 8601)"
+      provenance:
+        type: array
+        description: "来源追踪 ['session:xxx', 'inference:yyy']"
+      source_trust:
+        type: string
+        enum: ["high", "medium", "low"]
+        default: "medium"
+        description: "来源信任度"
 
   Commitment:
     required: [description, source, created_at]
@@ -121,6 +159,25 @@ types:
       tags:
         type: array
         description: "标签列表"
+      strength:
+        type: number
+        default: 1.0
+        description: "记忆强度 (0.0-1.0)"
+      decay_rate:
+        type: number
+        default: 0.85
+        description: "衰减率，Commitment 默认 0.85/月"
+      last_accessed:
+        type: string
+        description: "最后访问时间 (ISO 8601)"
+      provenance:
+        type: array
+        description: "来源追踪 ['session:xxx', 'user:yyy']"
+      source_trust:
+        type: string
+        enum: ["high", "medium", "low"]
+        default: "medium"
+        description: "来源信任度"
 
   ContextSnapshot:
     required: [title, captured_at, content_summary]
@@ -155,6 +212,25 @@ types:
       memory_ref:
         type: string
         description: "关联记忆文件"
+      strength:
+        type: number
+        default: 1.0
+        description: "记忆强度 (0.0-1.0)"
+      decay_rate:
+        type: number
+        default: 0.75
+        description: "衰减率，ContextSnapshot 默认 0.75/月"
+      last_accessed:
+        type: string
+        description: "最后访问时间 (ISO 8601)"
+      provenance:
+        type: array
+        description: "来源追踪 ['session:xxx']"
+      source_trust:
+        type: string
+        enum: ["high", "medium", "low"]
+        default: "medium"
+        description: "来源信任度"
 
   LessonLearned:
     required: [title, lesson, learned_at]
@@ -190,6 +266,25 @@ types:
       memory_ref:
         type: string
         description: "关联记忆文件"
+      strength:
+        type: number
+        default: 1.0
+        description: "记忆强度 (0.0-1.0)"
+      decay_rate:
+        type: number
+        default: 0.90
+        description: "衰减率，LessonLearned 默认 0.90/月"
+      last_accessed:
+        type: string
+        description: "最后访问时间 (ISO 8601)"
+      provenance:
+        type: array
+        description: "来源追踪 ['session:xxx', 'inference:yyy']"
+      source_trust:
+        type: string
+        enum: ["high", "medium", "low"]
+        default: "medium"
+        description: "来源信任度"
 
   # ========== 扩展的工作实体 ==========
   
@@ -429,6 +524,39 @@ relations:
     to_types: [Person]
     cardinality: many_to_one
     description: "分配给人"
+
+# ========== 记忆进化字段 (Phase 1b) ==========
+# 所有实体类型都支持以下可选字段，用于 Decay Engine 和 Memory Health Dashboard
+
+common_memory_fields:
+  strength:
+    type: number
+    default: 1.0
+    description: "记忆强度 (0.0-1.0)，Decay Engine 使用"
+  decay_rate:
+    type: number
+    default: 0.95
+    description: "衰减率，按类型不同：Decision=0.95, LessonLearned=0.90, Finding=0.80, SkillCard=0.99"
+  last_accessed:
+    type: string
+    description: "最后访问时间 (ISO 8601)，用于 Decay Engine 计算"
+  provenance:
+    type: array
+    description: "来源追踪列表，格式: 'session:{id}', 'inference:{engine}', 'user:{id}'"
+  source_trust:
+    type: string
+    enum: ["high", "medium", "low"]
+    default: "medium"
+    description: "来源信任度，基于观察次数和来源可靠性"
+
+# Decay rates by entity type
+decay_rates:
+  Decision: 0.95    # 慢衰减，高价值
+  LessonLearned: 0.90  # 中等衰减
+  Finding: 0.80     # 快衰减，容易过时
+  SkillCard: 0.99   # 几乎不衰减
+  Commitment: 0.85  # 中等衰减
+  ContextSnapshot: 0.75  # 快衰减
 
 # ========== 验证规则 ==========
 validations:
