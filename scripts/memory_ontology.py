@@ -17,6 +17,7 @@ import os
 import sys
 import hashlib
 import time
+import fcntl
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List, Any
@@ -32,6 +33,42 @@ ONTOLOGY_DIR = Path(_kg_dir) if _kg_dir else WORKSPACE_ROOT / "ontology"
 GRAPH_FILE = ONTOLOGY_DIR / "graph.jsonl"
 SCHEMA_FILE = ONTOLOGY_DIR / "memory-schema.yaml"
 BASE_SCHEMA_FILE = ONTOLOGY_DIR / "schema.yaml"
+
+# ========== Phase 1b: 记忆进化字段配置 ==========
+
+# 各实体类型的默认衰减率 (每月)
+DECAY_RATES = {
+    'Decision': 0.95,
+    'LessonLearned': 0.90,
+    'Finding': 0.80,
+    'SkillCard': 0.99,
+    'Commitment': 0.85,
+    'ContextSnapshot': 0.75,
+    'Note': 0.85,
+    'Task': 0.80,
+    'Project': 0.90,
+    'Preference': 0.90,  # Phase 2
+    # 默认值
+    'default': 0.90
+}
+
+# 衰减阈值，低于此值标记为归档候选
+DECAY_THRESHOLD = 0.10
+
+
+def _write_to_graph(data: str):
+    """写入 graph.jsonl（带文件锁）
+
+    使用 fcntl.flock 实现原子写入，防止并发写入冲突
+    """
+    lock_file = GRAPH_FILE.with_suffix('.lock')
+    with open(lock_file, 'w') as lock_f:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
+        try:
+            with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
+                f.write(data)
+        finally:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
 
 
 def ensure_ontology_dir():
@@ -67,6 +104,34 @@ def generate_entity_id(entity_type: str) -> str:
     
     prefix = prefix_map.get(entity_type, 'ent')
     return f"{prefix}_{hash_hex}"
+
+
+def get_default_decay_rate(entity_type: str) -> float:
+    """获取实体类型的默认衰减率"""
+    return DECAY_RATES.get(entity_type, DECAY_RATES['default'])
+
+
+def add_memory_evolution_fields(entity_type: str, properties: Dict) -> Dict:
+    """为实本添加记忆进化字段（Phase 1b）"""
+    now = datetime.now().astimezone().isoformat()
+
+    # 如果没有提供 strength，使用默认值
+    if 'strength' not in properties:
+        properties['strength'] = 1.0
+
+    # 如果没有提供 decay_rate，使用类型默认值
+    if 'decay_rate' not in properties:
+        properties['decay_rate'] = get_default_decay_rate(entity_type)
+
+    # 如果没有提供 last_accessed，设置为当前时间
+    if 'last_accessed' not in properties:
+        properties['last_accessed'] = now
+
+    # 如果没有提供 source_trust，使用默认值
+    if 'source_trust' not in properties:
+        properties['source_trust'] = 'medium'
+
+    return properties
 
 
 def load_schema() -> Dict:
@@ -143,17 +208,32 @@ def validate_entity(entity_type: str, properties: Dict) -> List[str]:
     return errors
 
 
-def create_entity(entity_type: str, properties: Dict, entity_id: Optional[str] = None) -> Dict:
-    """创建实体"""
+def create_entity(entity_type: str, properties: Dict, entity_id: Optional[str] = None,
+                 provenance: Optional[List[str]] = None) -> Dict:
+    """创建实体
+
+    Phase 1b 增强: 自动添加 strength, decay_rate, last_accessed, provenance 字段
+    """
+    # 添加记忆进化字段
+    properties = add_memory_evolution_fields(entity_type, properties)
+
+    # 添加 provenance（如果提供）
+    if provenance:
+        existing_provenance = properties.get('provenance', [])
+        if isinstance(existing_provenance, list):
+            properties['provenance'] = existing_provenance + provenance
+        else:
+            properties['provenance'] = provenance
+
     # 验证
     errors = validate_entity(entity_type, properties)
     if errors:
         raise ValueError(f"实体验证失败:\n" + "\n".join(f"  - {e}" for e in errors))
-    
+
     # 生成 ID
     if not entity_id:
         entity_id = generate_entity_id(entity_type)
-    
+
     # 创建实体对象
     now = datetime.now().astimezone().isoformat()
     entity = {
@@ -170,10 +250,9 @@ def create_entity(entity_type: str, properties: Dict, entity_id: Optional[str] =
         "entity": entity,
         "timestamp": now
     }
-    
-    with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(operation, ensure_ascii=False) + '\n')
-    
+
+    _write_to_graph(json.dumps(operation, ensure_ascii=False) + '\n')
+
     return entity
 
 
@@ -216,10 +295,9 @@ def create_relation(from_id: str, rel_type: str, to_id: str, properties: Optiona
         "properties": properties or {},
         "timestamp": now
     }
-    
-    with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(operation, ensure_ascii=False) + '\n')
-    
+
+    _write_to_graph(json.dumps(operation, ensure_ascii=False) + '\n')
+
     return operation
 
 
@@ -252,26 +330,178 @@ def load_all_entities() -> Dict[str, Dict]:
     return entities
 
 
+def refresh_entity_strength(entity_id: str) -> Optional[float]:
+    """刷新实体 strength 并更新 last_accessed
+
+    当实体被访问时调用，重置 strength 到 1.0
+
+    Returns:
+        更新后的 strength 值，如果实体不存在返回 None
+    """
+    entity = get_entity(entity_id)
+    if not entity:
+        return None
+
+    now = datetime.now().astimezone().isoformat()
+    props = entity['properties']
+    old_strength = props.get('strength', 1.0)
+
+    # 重置 strength 到 1.0
+    props['strength'] = 1.0
+    props['last_accessed'] = now
+
+    # 更新实体
+    update_operation = {
+        "op": "update",
+        "entity": {
+            "id": entity_id,
+            "properties": {
+                "strength": 1.0,
+                "last_accessed": now
+            },
+            "updated": now
+        },
+        "timestamp": now
+    }
+
+    # 追加到 graph.jsonl（带文件锁）
+    _write_to_graph(json.dumps(update_operation, ensure_ascii=False) + '\n')
+
+    return 1.0
+
+
+def apply_decay_to_entity(entity_id: str, days_elapsed: float) -> Optional[float]:
+    """对实体应用衰减
+
+    根据经过的时间和实体类型的衰减率计算新的 strength 值
+
+    Args:
+        entity_id: 实体 ID
+        days_elapsed: 经过的天数
+
+    Returns:
+        新的 strength 值，如果实体不存在返回 None
+    """
+    entity = get_entity(entity_id)
+    if not entity:
+        return None
+
+    props = entity['properties']
+    decay_rate = props.get('decay_rate', 0.95)
+
+    # 计算衰减：strength *= decay_rate^(days_elapsed/30)
+    # 假设 decay_rate 是每月的衰减率
+    old_strength = props.get('strength', 1.0)
+    months_elapsed = days_elapsed / 30.0
+    new_strength = old_strength * (decay_rate ** months_elapsed)
+
+    # 限制在 0-1 之间
+    new_strength = max(0.0, min(1.0, new_strength))
+
+    # 更新实体
+    now = datetime.now().astimezone().isoformat()
+    update_operation = {
+        "op": "update",
+        "entity": {
+            "id": entity_id,
+            "properties": {
+                "strength": new_strength
+            },
+            "updated": now
+        },
+        "timestamp": now
+    }
+
+    _write_to_graph(json.dumps(update_operation, ensure_ascii=False) + '\n')
+
+    return new_strength
+
+
+def get_entities_by_strength(threshold: float = 0.1) -> List[Dict]:
+    """获取 strength 低于阈值的实体列表（归档候选）
+
+    Args:
+        threshold: strength 阈值，默认 0.1
+
+    Returns:
+        strength 低于阈值的实体列表
+    """
+    entities = load_all_entities()
+    weak_entities = []
+
+    for entity in entities.values():
+        props = entity.get('properties', {})
+        strength = props.get('strength', 1.0)
+        if strength < threshold:
+            weak_entities.append(entity)
+
+    return weak_entities
+
+
+def get_entities_by_type(entity_type: str) -> List[Dict]:
+    """获取指定类型的所有实体"""
+    entities = load_all_entities()
+    return [e for e in entities.values() if e['type'] == entity_type]
+
+
+def get_strength_distribution() -> Dict[str, Dict]:
+    """获取各类型实体的 strength 分布统计
+
+    Returns:
+        Dict[type -> {count, avg_strength, min_strength, max_strength}]
+    """
+    entities = load_all_entities()
+    distribution = {}
+
+    for entity in entities.values():
+        entity_type = entity['type']
+        props = entity.get('properties', {})
+        strength = props.get('strength', 1.0)
+
+        if entity_type not in distribution:
+            distribution[entity_type] = {
+                'count': 0,
+                'total_strength': 0.0,
+                'min_strength': 1.0,
+                'max_strength': 0.0
+            }
+
+        d = distribution[entity_type]
+        d['count'] += 1
+        d['total_strength'] += strength
+        d['min_strength'] = min(d['min_strength'], strength)
+        d['max_strength'] = max(d['max_strength'], strength)
+
+    # 计算平均值
+    for d in distribution.values():
+        if d['count'] > 0:
+            d['avg_strength'] = d['total_strength'] / d['count']
+        else:
+            d['avg_strength'] = 0.0
+
+    return distribution
+
+
 def load_all_relations() -> List[Dict]:
     """加载所有关系"""
     relations = []
-    
+
     if not GRAPH_FILE.exists():
         return relations
-    
+
     with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            
+
             try:
                 operation = json.loads(line)
                 if operation['op'] == 'relate':
                     relations.append(operation)
             except json.JSONDecodeError:
                 continue
-    
+
     return relations
 
 
@@ -322,10 +552,24 @@ def query_entities(entity_type: Optional[str] = None,
     return results
 
 
-def get_entity(entity_id: str) -> Optional[Dict]:
-    """获取单个实体"""
+def get_entity(entity_id: str, refresh_strength: bool = True) -> Optional[Dict]:
+    """获取单个实体
+
+    Args:
+        entity_id: 实体 ID
+        refresh_strength: 是否刷新 strength（默认 True，访问时重置）
+    """
     entities = load_all_entities()
-    return entities.get(entity_id)
+    entity = entities.get(entity_id)
+
+    if entity and refresh_strength:
+        # 访问时刷新 strength
+        refresh_entity_strength(entity_id)
+        # 重新获取（已更新的实体）
+        entities = load_all_entities()
+        entity = entities.get(entity_id)
+
+    return entity
 
 
 def get_related_entities(entity_id: str, relation_type: Optional[str] = None) -> List[Dict]:
@@ -471,7 +715,21 @@ def print_entity(entity: Dict, verbose: bool = False):
     # 标签
     if 'tags' in props:
         print(f"标签：{', '.join(props['tags'])}")
-    
+
+    # Phase 1b: 记忆进化字段
+    if 'strength' in props:
+        strength = props['strength']
+        bar_len = int(strength * 20)
+        bar = '█' * bar_len + '░' * (20 - bar_len)
+        print(f"强度：[{bar}] {strength:.0%}")
+    if 'last_accessed' in props:
+        print(f"最后访问：{props['last_accessed']}")
+    if 'provenance' in props and props['provenance']:
+        provenance_str = ', '.join(props['provenance']) if isinstance(props['provenance'], list) else props['provenance']
+        print(f"来源：{provenance_str}")
+    if 'source_trust' in props:
+        print(f"信任度：{props['source_trust']}")
+
     # 详细内容
     if verbose:
         for field, value in props.items():
@@ -619,20 +877,41 @@ def main():
     elif args.command == 'stats':
         entities = load_all_entities()
         relations = load_all_relations()
-        
+
         # 按类型统计
         by_type = {}
         for entity in entities.values():
             entity_type = entity['type']
             by_type[entity_type] = by_type.get(entity_type, 0) + 1
-        
+
         print(f"\n📊 Agent Memory Ontology 统计\n")
         print(f"实体总数：{len(entities)}")
         print(f"关系总数：{len(relations)}")
         print(f"\n按类型分布:")
         for entity_type, count in sorted(by_type.items(), key=lambda x: -x[1]):
             print(f"  {entity_type}: {count}")
-        
+
+        # Phase 1b: Strength 分布
+        print(f"\n📈 记忆强度分布 (Phase 1b):")
+        strength_dist = get_strength_distribution()
+        for entity_type, stats in sorted(strength_dist.items()):
+            avg = stats.get('avg_strength', 0)
+            bar_len = int(avg * 20)
+            bar = '█' * bar_len + '░' * (20 - bar_len)
+            print(f"  {entity_type}: [{bar}] {avg:.0%}")
+
+        # 衰减候选
+        weak_entities = get_entities_by_strength(DECAY_THRESHOLD)
+        if weak_entities:
+            print(f"\n🗑️ 衰减候选 (strength < {DECAY_THRESHOLD}): {len(weak_entities)} 个")
+            for entity in weak_entities[:5]:
+                props = entity['properties']
+                title = props.get('title', entity['id'])
+                strength = props.get('strength', 0)
+                print(f"  - {entity['id']}: {title} (strength={strength:.2f})")
+            if len(weak_entities) > 5:
+                print(f"  ... 还有 {len(weak_entities) - 5} 个")
+
         # 最近创建的实体
         print(f"\n最近创建的实体:")
         sorted_entities = sorted(entities.values(), key=lambda x: x.get('created', ''), reverse=True)[:5]
