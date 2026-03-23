@@ -17,6 +17,7 @@ import os
 import sys
 import hashlib
 import time
+import fcntl
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List, Any
@@ -53,6 +54,21 @@ DECAY_RATES = {
 
 # 衰减阈值，低于此值标记为归档候选
 DECAY_THRESHOLD = 0.10
+
+
+def _write_to_graph(data: str):
+    """写入 graph.jsonl（带文件锁）
+
+    使用 fcntl.flock 实现原子写入，防止并发写入冲突
+    """
+    lock_file = GRAPH_FILE.with_suffix('.lock')
+    with open(lock_file, 'w') as lock_f:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
+        try:
+            with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
+                f.write(data)
+        finally:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
 
 
 def ensure_ontology_dir():
@@ -234,10 +250,9 @@ def create_entity(entity_type: str, properties: Dict, entity_id: Optional[str] =
         "entity": entity,
         "timestamp": now
     }
-    
-    with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(operation, ensure_ascii=False) + '\n')
-    
+
+    _write_to_graph(json.dumps(operation, ensure_ascii=False) + '\n')
+
     return entity
 
 
@@ -280,10 +295,9 @@ def create_relation(from_id: str, rel_type: str, to_id: str, properties: Optiona
         "properties": properties or {},
         "timestamp": now
     }
-    
-    with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(operation, ensure_ascii=False) + '\n')
-    
+
+    _write_to_graph(json.dumps(operation, ensure_ascii=False) + '\n')
+
     return operation
 
 
@@ -350,9 +364,8 @@ def refresh_entity_strength(entity_id: str) -> Optional[float]:
         "timestamp": now
     }
 
-    # 追加到 graph.jsonl
-    with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(update_operation, ensure_ascii=False) + '\n')
+    # 追加到 graph.jsonl（带文件锁）
+    _write_to_graph(json.dumps(update_operation, ensure_ascii=False) + '\n')
 
     return 1.0
 
@@ -399,8 +412,7 @@ def apply_decay_to_entity(entity_id: str, days_elapsed: float) -> Optional[float
         "timestamp": now
     }
 
-    with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(update_operation, ensure_ascii=False) + '\n')
+    _write_to_graph(json.dumps(update_operation, ensure_ascii=False) + '\n')
 
     return new_strength
 
