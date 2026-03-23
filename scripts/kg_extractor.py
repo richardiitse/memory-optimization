@@ -624,8 +624,8 @@ def main():
     parser.add_argument(
         '--agents-dir', '-d',
         type=Path,
-        default=WORKSPACE_ROOT / 'agents',
-        help='Agent 会话目录路径'
+        default=Path(os.environ.get('KG_AGENTS_DIR', WORKSPACE_ROOT / 'agents')),
+        help='Agent 会话目录路径 (默认: KG_AGENTS_DIR 环境变量或 WORKSPACE_ROOT/agents)'
     )
 
     parser.add_argument(
