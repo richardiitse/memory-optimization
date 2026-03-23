@@ -46,6 +46,7 @@ DECAY_RATES = {
     'Note': 0.85,
     'Task': 0.80,
     'Project': 0.90,
+    'Preference': 0.90,  # Phase 2
     # 默认值
     'default': 0.90
 }
