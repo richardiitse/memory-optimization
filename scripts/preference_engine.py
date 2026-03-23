@@ -204,7 +204,7 @@ def judge_task_similarity(task_a: str, task_b: str, client: LLMClient,
             json_str = response[json_start:json_end]
             data = json.loads(json_str)
 
-            is_same = data.get('is_same', False)
+            is_same = bool(data.get('is_same', False))
             reasoning = data.get('reasoning', '')
 
             # 写入缓存
