@@ -188,6 +188,25 @@ export OPENAI_BASE_URL="https://open.bigmodel.cn/api/paas/v4"
 export MEMORY_ONTOLOGY_PATH="/root/.openclaw/workspace/memory/ontology"
 ```
 
+## OpenClaw 技能调用配置
+
+当用户输入 `/xmo` 时，OpenClaw 会自动调用此 memory-optimization 技能。
+
+在 OpenClaw 的 `settings.json` 或 `skills.json` 中添加以下配置：
+
+```json
+{
+  "skills": {
+    "xmo": {
+      "path": "./memory-optimization",
+      "description": "Memory optimization skill for AI agents"
+    }
+  }
+}
+```
+
+配置后，用户输入 `/xmo` 即可激活此技能。
+
 ## Next Steps
 
 1. Run test script: `./memory/test-memory-system.sh`
