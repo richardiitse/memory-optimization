@@ -286,6 +286,53 @@ types:
         default: "medium"
         description: "来源信任度"
 
+  # ========== Phase 2: 偏好实体 ==========
+
+  Preference:
+    required: [title, pattern, preference_type, learned_at]
+    properties:
+      title:
+        type: string
+        description: "偏好标题"
+      pattern:
+        type: string
+        description: "偏好模式（任务描述）"
+      preference_type:
+        type: string
+        enum: [temporal, tool, frequency, action]
+        description: "偏好类型: temporal=时间模式, tool=工具选择, frequency=频率, action=动作"
+      confidence:
+        type: number
+        description: "置信度 (0.0-1.0)"
+      learned_from:
+        type: array
+        description: "学习来源实体 ID 列表"
+      learned_at:
+        type: string
+        description: "学习时间 (ISO 8601)"
+      tags:
+        type: array
+        description: "标签列表 (#preference, #temporal 等)"
+      strength:
+        type: number
+        default: 1.0
+        description: "记忆强度 (0.0-1.0)"
+      decay_rate:
+        type: number
+        default: 0.90
+        description: "衰减率，Preference 默认 0.90/月"
+      last_accessed:
+        type: string
+        description: "最后访问时间 (ISO 8601)"
+      provenance:
+        type: array
+        description: "来源追踪 ['inference:preference_engine']"
+      source_trust:
+        type: string
+        enum: ["high", "medium", "low"]
+        default: "medium"
+        description: "来源信任度"
+
   # ========== 扩展的工作实体 ==========
   
   Task:
