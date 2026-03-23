@@ -492,7 +492,8 @@ class EntityExtractor:
                     props['mistake_or_success'] = 'observation'
 
                 elif entity_type == 'Commitment':
-                    # Commitment 没有 confidence 字段
+                    # Commitment 没有 confidence 评估，使用默认值
+                    props['confidence'] = 0.5
                     props['description'] = item.get('description', '')
                     props['created_at'] = time_field
                     props['status'] = 'pending'
