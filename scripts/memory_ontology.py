@@ -34,6 +34,36 @@ GRAPH_FILE = ONTOLOGY_DIR / "graph.jsonl"
 SCHEMA_FILE = ONTOLOGY_DIR / "memory-schema.yaml"
 BASE_SCHEMA_FILE = ONTOLOGY_DIR / "schema.yaml"
 
+
+def load_env_file():
+    """从 .env 文件加载环境变量
+
+    查找 WORKSPACE_ROOT/.env 文件并设置环境变量。
+    跳过注释和空行，支持带引号的值。
+    """
+    env_file = WORKSPACE_ROOT / ".env"
+    if not env_file.exists():
+        return
+
+    with open(env_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            # 跳过空行和注释
+            if not line or line.startswith('#'):
+                continue
+            # 解析 KEY=value
+            if '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and value:
+                os.environ[key] = value
+
+
+# 加载 .env 文件（如果存在）
+load_env_file()
+
 # ========== Phase 1b: 记忆进化字段配置 ==========
 
 # 各实体类型的默认衰减率 (每月)
@@ -99,7 +129,9 @@ def generate_entity_id(entity_type: str) -> str:
         'Person': 'pers',
         'Milestone': 'mile',
         'Skill': 'skil',
-        'Event': 'event'
+        'Event': 'event',
+        'SkillCard': 'skc',
+        'ConflictReview': 'conf'
     }
     
     prefix = prefix_map.get(entity_type, 'ent')
@@ -368,6 +400,41 @@ def refresh_entity_strength(entity_id: str) -> Optional[float]:
     _write_to_graph(json.dumps(update_operation, ensure_ascii=False) + '\n')
 
     return 1.0
+
+
+def mark_entity_consolidated(entity_id: str, skillcard_id: str) -> bool:
+    """标记实体已被合并到 SkillCard
+
+    使用 op: update 模式标记原始实体，这样在后续的 Consolidation Cycle 中
+    不会再次被考虑合并。
+
+    Args:
+        entity_id: 被合并的原始实体 ID
+        skillcard_id: 合并后生成的 SkillCard ID
+
+    Returns:
+        成功返回 True，失败返回 False
+    """
+    entity = get_entity(entity_id)
+    if not entity:
+        print(f"Warning: Entity {entity_id} not found for consolidation marking")
+        return False
+
+    now = datetime.now().astimezone().isoformat()
+
+    # 使用 op: update 模式标记实体已被合并
+    update_op = {
+        "op": "update",
+        "entity": {
+            "id": entity_id,
+            "properties": {"consolidated_into": skillcard_id},
+            "updated": now
+        },
+        "timestamp": now
+    }
+
+    _write_to_graph(json.dumps(update_op, ensure_ascii=False) + '\n')
+    return True
 
 
 def apply_decay_to_entity(entity_id: str, days_elapsed: float) -> Optional[float]:
