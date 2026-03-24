@@ -333,6 +333,86 @@ types:
         default: "medium"
         description: "来源信任度"
 
+  # ========== Phase 3: Consolidation Engine ==========
+
+  SkillCard:
+    required: [title, summary, source_episodes, consolidated_at]
+    properties:
+      title:
+        type: string
+        description: "技能卡片标题"
+      summary:
+        type: string
+        description: "LLM 生成的简洁摘要"
+      source_episodes:
+        type: array
+        description: "来源实体 ID 列表"
+      consolidated_at:
+        type: string
+        description: "合并时间 (ISO 8601)"
+      conflict_notes:
+        type: string
+        description: "冲突标记说明"
+      entity_types_consolidated:
+        type: array
+        description: "合并的实体类型列表"
+      confidence:
+        type: number
+        description: "LLM 判断置信度 (0-1)"
+      tags:
+        type: array
+        description: "标签列表"
+      strength:
+        type: number
+        default: 1.0
+        description: "记忆强度"
+      decay_rate:
+        type: number
+        default: 0.99
+        description: "几乎不衰减"
+      last_accessed:
+        type: string
+        description: "最后访问时间"
+      provenance:
+        type: array
+        description: "来源追踪 ['consolidation:engine']"
+      source_trust:
+        type: string
+        enum: ["high", "medium", "low"]
+        default: "high"
+        description: "信任度"
+
+  ConflictReview:
+    required: [entity1_id, entity2_id, conflict_type, created_at]
+    properties:
+      entity1_id:
+        type: string
+        description: "第一个实体 ID"
+      entity2_id:
+        type: string
+        description: "第二个实体 ID"
+      conflict_type:
+        type: string
+        enum: [factual, decision, recommendation]
+        description: "冲突类型"
+      description:
+        type: string
+        description: "冲突描述"
+      status:
+        type: string
+        enum: [pending, resolved_keep_first, resolved_keep_second, resolved_manual]
+        default: pending
+        description: "解决状态"
+      resolution_notes:
+        type: string
+        description: "解决说明"
+      created_at:
+        type: string
+        description: "创建时间"
+      resolved_at:
+        type: string
+        description: "解决时间"
+
   # ========== 扩展的工作实体 ==========
   
   Task:
@@ -499,6 +579,20 @@ relations:
     to_types: [Note]
     cardinality: many_to_many
     description: "记忆实体引用笔记"
+
+  # ========== Phase 3: Consolidation 关系 ==========
+
+  consolidated_from:
+    from_types: [SkillCard]
+    to_types: [Decision, Finding, LessonLearned]
+    cardinality: one_to_many
+    description: "SkillCard 由多个实体合并而来"
+
+  conflict_between:
+    from_types: [ConflictReview]
+    to_types: [Decision, Finding, LessonLearned, Commitment]
+    cardinality: many_to_many
+    description: "ConflictReview 标记的冲突实体"
 
   # ========== 项目和任务关系 (继承自原 schema) ==========
   
