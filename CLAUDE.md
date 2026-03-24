@@ -78,6 +78,18 @@ python3 scripts/kg_extractor.py --agents-dir agents/ --model glm-5 --api-key you
 python3 scripts/kg_extractor.py --agents-dir agents/ --output report.json
 ```
 
+### Consolidation Engine (Phase 3)
+```bash
+# Dry-run 测试（不写入 KG）
+python3 scripts/consolidation_engine.py run --dry-run
+
+# 运行合并引擎（实际合并）
+python3 scripts/consolidation_engine.py run
+
+# 查看合并状态
+python3 scripts/consolidation_engine.py status
+```
+
 ### Run Tests
 ```bash
 # Run KG extractor tests
@@ -110,9 +122,11 @@ memory-optimization/
 │   ├── test-memory-system.sh   # Testing framework (6 tests)
 │   ├── kg_extractor.py         # KG extraction from agent sessions
 │   ├── memory_ontology.py      # KG management tool
+│   ├── consolidation_engine.py  # Phase 3: Consolidation engine
 │   └── README.md               # Scripts documentation
 ├── tests/
-│   └── test_kg_extractor.py   # KG extractor unit tests
+│   ├── test_kg_extractor.py   # KG extractor unit tests
+│   └── test_consolidation_engine.py  # Consolidation engine tests
 ├── ontology/
 │   ├── memory-schema.yaml      # KG entity schema
 │   ├── graph.jsonl             # KG data (gitignored)
