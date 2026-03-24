@@ -95,6 +95,26 @@ class TestLLMClient:
         data = json.loads(response)
         assert "entities" in data
 
+    def test_call_with_api_key(self):
+        """测试配置 API key 时的实际调用"""
+        client = LLMClient(api_key='test-api-key', base_url='https://api.test.com')
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": '{"entities": [{"type": "Decision", "title": "API Test", "rationale": "From API", "made_at": "2026-01-01T00:00:00Z", "confidence": 0.8, "tags": ["#api"]}]}'}}]
+        }
+
+        with patch('requests.post', return_value=mock_response) as mock_post:
+            response = client.call([{"role": "user", "content": "test"}])
+
+            assert response is not None
+            data = json.loads(response)
+            assert data["entities"][0]["title"] == "API Test"
+            mock_post.assert_called_once()
+            call_args = mock_post.call_args
+            assert "Bearer test-api-key" in call_args.kwargs['headers']['Authorization']
+
 
 class TestEntityExtractor:
     """测试实体提取器"""
