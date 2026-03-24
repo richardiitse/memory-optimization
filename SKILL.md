@@ -185,7 +185,7 @@ export OPENAI_API_KEY="your-glm-token"
 export OPENAI_BASE_URL="https://open.bigmodel.cn/api/paas/v4"
 
 # 全局 KG 路径 (可选，默认使用 ~/.openclaw/workspace/memory/ontology)
-export MEMORY_ONTOLOGY_PATH="/root/.openclaw/workspace/memory/ontology"
+# 使用 KG_DIR 环境变量配置
 ```
 
 ## OpenClaw 技能调用配置
