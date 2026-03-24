@@ -17,7 +17,7 @@ import sys
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 
 # 导入 memory_ontology 的函数 (在 main() 中动态导入以支持 KG_DIR)
@@ -25,11 +25,43 @@ from dataclasses import dataclass, field
 # 路径配置
 SCRIPT_DIR = Path(__file__).parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
+ONTOLOGY_DIR = WORKSPACE_ROOT / "ontology"
+KG_LOG_FILE = ONTOLOGY_DIR / "kg_extraction_log.jsonl"
 
 # 默认配置
 DEFAULT_KG_DIR = ""  # 开发环境使用 ontology/
 DEFAULT_API_KEY = ""  # 从环境变量 OPENAI_API_KEY 读取
 DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
+
+
+def load_env_file():
+    """从 .env 文件加载环境变量
+
+    查找 WORKSPACE_ROOT/.env 文件并设置环境变量。
+    跳过注释和空行，支持带引号的值。
+    """
+    env_file = WORKSPACE_ROOT / ".env"
+    if not env_file.exists():
+        return
+
+    with open(env_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            # 跳过空行和注释
+            if not line or line.startswith('#'):
+                continue
+            # 解析 KEY=value
+            if '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and value:
+                os.environ[key] = value
+
+
+# 加载 .env 文件（如果存在）
+load_env_file()
 
 
 # ========== 数据模型 ==========
@@ -538,11 +570,13 @@ class BatchProcessor:
             'files_processed': 0,
             'files_with_entities': 0,
             'total_entities': 0,
-            'by_type': {}
+            'by_type': {},
+            'processed_files': []
         }
 
     def process_directory(self, agents_dir: Path, batch_size: int = 5,
-                         dry_run: bool = False, limit: int = None) -> Dict:
+                         dry_run: bool = False, limit: int = None,
+                         log: bool = False) -> Dict:
         """处理目录下所有会话文件"""
         jsonl_files = JSONLParser.scan_directory(agents_dir)
 
@@ -580,10 +614,18 @@ class BatchProcessor:
             else:
                 print(f"  - No entities extracted")
 
+            # 记录已处理的文件
+            self.stats['processed_files'].append({
+                'file': str(file_path),
+                'session_id': conversation.session_id,
+                'entities_count': len(entities)
+            })
+
             # 批量处理间隔
             if (i + 1) % batch_size == 0:
                 print(f"\n--- Processed {i+1} files, pausing ---")
-                # 可以在这里添加延迟
+                if log:
+                    _append_to_log(self.stats['processed_files'], batch_size)
 
         return self.stats
 
@@ -611,7 +653,28 @@ class ReportGenerator:
                                               key=lambda x: -x[1]):
                 print(f"  {entity_type}: {count}")
 
+        if stats.get('processed_files'):
+            print(f"\n已处理文件列表 ({len(stats['processed_files'])}):")
+            for pf in stats['processed_files']:
+                print(f"  - {pf['file']} (session: {pf['session_id']}, entities: {pf['entities_count']})")
+
         print()
+
+
+def _append_to_log(processed_files: list, batch_size: int = 5):
+    """追加已处理文件到日志"""
+    if not processed_files:
+        return
+    KG_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    # 只写入最新批次
+    recent_files = processed_files[-batch_size:] if len(processed_files) > batch_size else processed_files
+    with open(KG_LOG_FILE, 'a', encoding='utf-8') as f:
+        for pf in recent_files:
+            log_entry = {
+                'timestamp': datetime.now().astimezone().isoformat(),
+                **pf
+            }
+            f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
 
 
 # ========== Main ==========
@@ -678,6 +741,12 @@ def main():
         help='输出报告到文件'
     )
 
+    parser.add_argument(
+        '--log',
+        action='store_true',
+        help='将处理记录写入日志文件 (ontology/kg_extraction_log.jsonl)'
+    )
+
     args = parser.parse_args()
 
     # 设置知识图谱目录（必须在导入 memory_ontology 之前）
@@ -713,7 +782,8 @@ def main():
         args.agents_dir,
         batch_size=args.batch_size,
         dry_run=args.dry_run,
-        limit=args.limit
+        limit=args.limit,
+        log=args.log
     )
 
     # 输出报告
