@@ -208,9 +208,13 @@ class TestLLMClient:
     def test_call_without_api_key_uses_mock(self):
         """Test LLMClient uses mock when no API key"""
         from preference_engine import LLMClient
+        from unittest.mock import patch
 
-        client = LLMClient(api_key="")
-        result = client.call([])
+        # Patch os.environ to simulate no API key configured,
+        # since kg_extractor loads .env at import time which sets OPENAI_API_KEY
+        with patch.dict('os.environ', {'OPENAI_API_KEY': ''}, clear=False):
+            client = LLMClient(api_key="")
+            result = client.call([])
 
         assert result is not None
         assert "is_same" in result
