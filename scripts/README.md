@@ -86,6 +86,47 @@ python3 scripts/memory_ontology.py stats
 
 ---
 
+### consolidation_engine.py
+
+Phase 3: Consolidate similar Episode patterns into Semantic Memory (SkillCard).
+
+**Usage:**
+```bash
+python3 scripts/consolidation_engine.py run --dry-run
+python3 scripts/consolidation_engine.py status
+```
+
+**Commands:**
+- `run` - Run consolidation cycle (use `--dry-run` to simulate)
+- `status` - Show consolidation status and pending reviews
+
+---
+
+### decay_engine.py
+
+Batch decay engine for memory strength management.
+
+**Usage:**
+```bash
+python3 scripts/decay_engine.py run
+python3 scripts/decay_engine.py run --dry-run
+python3 scripts/decay_engine.py stats
+python3 scripts/decay_engine.py candidates
+```
+
+**Commands:**
+- `run` - Apply decay to all entities and archive weak ones
+- `run --dry-run` - Simulate without writing changes
+- `stats` - Show memory strength distribution
+- `candidates` - List weak entities eligible for archiving
+
+**Implementation:**
+- Pre-loads all entities once to avoid O(n²) file reads
+- Applies time-based decay to entities not accessed for 1+ hour
+- Archives entities with strength below DECAY_THRESHOLD
+
+---
+
 ## Installation
 
 These scripts are bundled with the memory-optimization skill. They work in the OpenClaw workspace environment.
