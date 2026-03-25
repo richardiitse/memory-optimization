@@ -98,6 +98,7 @@ See [scripts/README.md](scripts/README.md) for detailed usage:
 - `consolidation_engine.py` - Phase 3: consolidate similar episodes into SkillCards
 - `decay_engine.py` - Batch decay engine for memory strength management
 - `working_memory.py` - Phase 5: Context Window layered compression (3 levels)
+- `memory_loader.py` - Phase 6: Proactive memory recovery (3-stage staged loading)
 
 ## References
 
