@@ -71,7 +71,10 @@ python3 scripts/kg_extractor.py --agents-dir agents/
 # 限制处理文件数（用于测试）
 python3 scripts/kg_extractor.py --agents-dir agents/ --limit 5
 
-# 指定模型和 API
+# 指定模型（通过 OPENAI_MODEL 环境变量，默认 glm-5）
+python3 scripts/kg_extractor.py --agents-dir agents/
+
+# 或通过命令行参数指定模型
 python3 scripts/kg_extractor.py --agents-dir agents/ --model glm-5 --api-key your-key
 
 # 输出报告到文件
@@ -122,11 +125,15 @@ memory-optimization/
 │   ├── test-memory-system.sh   # Testing framework (6 tests)
 │   ├── kg_extractor.py         # KG extraction from agent sessions
 │   ├── memory_ontology.py      # KG management tool
-│   ├── consolidation_engine.py  # Phase 3: Consolidation engine
+│   ├── preference_engine.py    # Phase 2: User preference inference
+│   ├── consolidation_engine.py # Phase 3: Semantic memory consolidation
+│   ├── decay_engine.py         # Batch decay engine for weak entities
 │   └── README.md               # Scripts documentation
 ├── tests/
 │   ├── test_kg_extractor.py   # KG extractor unit tests
-│   └── test_consolidation_engine.py  # Consolidation engine tests
+│   ├── test_consolidation_engine.py  # Consolidation engine tests
+│   ├── test_preference_engine.py  # Preference engine tests
+│   └── test_decay_engine.py   # Decay engine tests
 ├── ontology/
 │   ├── memory-schema.yaml      # KG entity schema
 │   ├── graph.jsonl             # KG data (gitignored)

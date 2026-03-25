@@ -82,10 +82,10 @@ _llm_cache = LLMCache()
 class LLMClient:
     """LLM 客户端 - 支持 OpenAI 兼容 API"""
 
-    def __init__(self, api_key: str = None, base_url: str = None, model: str = "glm-5"):
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
         self.api_key = api_key or os.environ.get('OPENAI_API_KEY', '')
         self.base_url = base_url or os.environ.get('OPENAI_BASE_URL', 'https://open.bigmodel.cn/api/paas/v4')
-        self.model = model
+        self.model = model or os.environ.get('OPENAI_MODEL', 'glm-5')
 
     def call(self, messages: List[Dict], temperature: float = 0.3) -> Optional[str]:
         """调用 LLM
