@@ -93,10 +93,28 @@ python3 scripts/consolidation_engine.py run
 python3 scripts/consolidation_engine.py status
 ```
 
+### Memory Loader (Phase 6)
+```bash
+# Load Stage 1 (core identity — at agent startup)
+python3 scripts/memory_loader.py stage1
+
+# Load Stage 2 (episodic memory — on demand)
+python3 scripts/memory_loader.py stage2 [--project-id <id>]
+
+# Load Stage 3 (semantic memory — on demand)
+python3 scripts/memory_loader.py stage3 [--context "..."]
+
+# Full recovery (all stages)
+python3 scripts/memory_loader.py recover [--project-id <id>]
+
+# Show memory statistics
+python3 scripts/memory_loader.py stats
+```
+
 ### Run Tests
 ```bash
-# Run KG extractor tests
-python3 -m pytest tests/test_kg_extractor.py -v
+# Run all tests
+python3 -m pytest tests/ -v
 ```
 
 ### Grep Search
@@ -129,6 +147,7 @@ memory-optimization/
 │   ├── consolidation_engine.py # Phase 3: Semantic memory consolidation
 │   ├── decay_engine.py         # Batch decay engine for weak entities
 │   ├── working_memory.py       # Phase 5: Context Window layered compression
+│   ├── memory_loader.py        # Phase 6: Proactive memory recovery (staged loading)
 │   ├── utils/
 │   │   ├── __init__.py         # Shared utilities package
 │   │   └── llm_client.py       # Unified LLM client
@@ -138,7 +157,8 @@ memory-optimization/
 │   ├── test_consolidation_engine.py  # Consolidation engine tests
 │   ├── test_preference_engine.py  # Preference engine tests
 │   ├── test_decay_engine.py   # Decay engine tests
-│   └── test_working_memory.py # Working memory tests
+│   ├── test_working_memory.py # Working memory tests
+│   └── test_memory_loader.py  # Memory loader tests
 ├── ontology/
 │   ├── memory-schema.yaml      # KG entity schema
 │   ├── graph.jsonl             # KG data (gitignored)
