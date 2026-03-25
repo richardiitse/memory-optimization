@@ -127,7 +127,7 @@ class TestLoadStage1:
         """KG unavailable returns empty results + error field."""
         from memory_loader import MemoryLoader
 
-        with patch('memory_loader.load_all_entities', side_effect=Exception("KG unavailable")):
+        with patch('memory_loader.load_all_entities', side_effect=OSError("KG unavailable")):
             loader = MemoryLoader()
             result = loader.load_stage1()
 
@@ -203,7 +203,7 @@ class TestLoadStage2:
         """KG unavailable returns empty results + error field."""
         from memory_loader import MemoryLoader
 
-        with patch('memory_loader.load_all_entities', side_effect=Exception("KG unavailable")):
+        with patch('memory_loader.load_all_entities', side_effect=OSError("KG unavailable")):
             loader = MemoryLoader()
             result = loader.load_stage2()
 
@@ -266,7 +266,7 @@ class TestLoadStage3:
         """KG unavailable returns empty results + error field."""
         from memory_loader import MemoryLoader
 
-        with patch('memory_loader.load_all_entities', side_effect=Exception("KG unavailable")):
+        with patch('memory_loader.load_all_entities', side_effect=OSError("KG unavailable")):
             loader = MemoryLoader()
             result = loader.load_stage3()
 
@@ -358,7 +358,7 @@ class TestGetStats:
         """KG unavailable returns error in stats."""
         from memory_loader import MemoryLoader
 
-        with patch('memory_loader.load_all_entities', side_effect=Exception("KG unavailable")):
+        with patch('memory_loader.load_all_entities', side_effect=OSError("KG unavailable")):
             loader = MemoryLoader()
             stats = loader.get_stats()
 

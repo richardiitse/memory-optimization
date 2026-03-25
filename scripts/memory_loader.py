@@ -19,12 +19,7 @@ import argparse
 import json
 import warnings
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 from typing import Dict, List, Optional
-
-# Path configuration (same as other memory scripts)
-WORKSPACE_ROOT = Path.home() / ".openclaw" / "workspace" / "memory"
-GRAPH_FILE = WORKSPACE_ROOT / "ontology" / "graph.jsonl"
 
 # Import from memory_ontology — reuse existing infrastructure
 from memory_ontology import load_all_entities
@@ -60,7 +55,7 @@ class MemoryLoader:
         """
         try:
             entities = load_all_entities()
-        except Exception as e:
+        except (OSError, IOError, PermissionError) as e:
             warnings.warn(f"KG unavailable during Stage 1: {e}")
             return self._empty_stage(1, error=str(e))
 
@@ -107,7 +102,7 @@ class MemoryLoader:
         """
         try:
             entities = load_all_entities()
-        except Exception as e:
+        except (OSError, IOError, PermissionError) as e:
             warnings.warn(f"KG unavailable during Stage 2: {e}")
             return self._empty_stage(2, error=str(e))
 
@@ -155,7 +150,7 @@ class MemoryLoader:
         """
         try:
             entities = load_all_entities()
-        except Exception as e:
+        except (OSError, IOError, PermissionError) as e:
             warnings.warn(f"KG unavailable during Stage 3: {e}")
             return self._empty_stage(3, error=str(e))
 
@@ -206,7 +201,7 @@ class MemoryLoader:
         """
         try:
             entities = load_all_entities()
-        except Exception:
+        except (OSError, IOError, PermissionError):
             return {'error': 'KG unavailable', 'by_type': {}, 'by_strength_range': {}}
 
         by_type = {}
@@ -264,6 +259,8 @@ class MemoryLoader:
                 entity_time = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
             else:
                 entity_time = datetime.fromisoformat(created_at)
+                # Make naive datetime timezone-aware for comparison with cutoff
+                entity_time = entity_time.replace(tzinfo=timezone.utc)
         except ValueError:
             return False
 
