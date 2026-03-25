@@ -128,12 +128,17 @@ memory-optimization/
 │   ├── preference_engine.py    # Phase 2: User preference inference
 │   ├── consolidation_engine.py # Phase 3: Semantic memory consolidation
 │   ├── decay_engine.py         # Batch decay engine for weak entities
+│   ├── working_memory.py       # Phase 5: Context Window layered compression
+│   ├── utils/
+│   │   ├── __init__.py         # Shared utilities package
+│   │   └── llm_client.py       # Unified LLM client
 │   └── README.md               # Scripts documentation
 ├── tests/
 │   ├── test_kg_extractor.py   # KG extractor unit tests
 │   ├── test_consolidation_engine.py  # Consolidation engine tests
 │   ├── test_preference_engine.py  # Preference engine tests
-│   └── test_decay_engine.py   # Decay engine tests
+│   ├── test_decay_engine.py   # Decay engine tests
+│   └── test_working_memory.py # Working memory tests
 ├── ontology/
 │   ├── memory-schema.yaml      # KG entity schema
 │   ├── graph.jsonl             # KG data (gitignored)
