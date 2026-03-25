@@ -85,6 +85,9 @@ DECAY_RATES = {
 # 衰减阈值，低于此值标记为归档候选
 DECAY_THRESHOLD = 0.10
 
+# 访问时衰减阈值（小时），超过此时间才触发衰减
+ACCESS_DECAY_THRESHOLD_HOURS = 1
+
 
 def _write_to_graph(data: str):
     """写入 graph.jsonl（带文件锁）
@@ -336,16 +339,16 @@ def create_relation(from_id: str, rel_type: str, to_id: str, properties: Optiona
 def load_all_entities() -> Dict[str, Dict]:
     """加载所有实体"""
     entities = {}
-    
+
     if not GRAPH_FILE.exists():
         return entities
-    
+
     with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            
+
             try:
                 operation = json.loads(line)
                 if operation['op'] == 'create':
@@ -358,28 +361,61 @@ def load_all_entities() -> Dict[str, Dict]:
                         entities[entity_id]['updated'] = operation['entity']['updated']
             except json.JSONDecodeError:
                 continue
-    
+
     return entities
+
+
+def _read_entity_from_graph(entity_id: str) -> Optional[Dict]:
+    """从 graph.jsonl 读取单个实体（不触发衰减）
+
+    这是 get_entity() 的内部辅助方法，用于在不触发访问时衰减的情况下读取实体。
+    """
+    entities = load_all_entities()
+    return entities.get(entity_id)
 
 
 def refresh_entity_strength(entity_id: str) -> Optional[float]:
     """刷新实体 strength 并更新 last_accessed
 
-    当实体被访问时调用，重置 strength 到 1.0
+    当实体被访问时调用，计算基于时间的衰减而非硬重置。
+    衰减公式: new_strength = old_strength * (decay_rate ^ (days_elapsed / 30))
 
     Returns:
         更新后的 strength 值，如果实体不存在返回 None
     """
-    entity = get_entity(entity_id)
+    entity = _read_entity_from_graph(entity_id)
     if not entity:
         return None
 
     now = datetime.now().astimezone().isoformat()
     props = entity['properties']
-    old_strength = props.get('strength', 1.0)
+    last_accessed = props.get('last_accessed')
 
-    # 重置 strength 到 1.0
-    props['strength'] = 1.0
+    if last_accessed:
+        # 计算自上次访问以来的衰减
+        try:
+            last_dt = datetime.fromisoformat(last_accessed.replace('Z', '+00:00'))
+            hours_elapsed = (datetime.now().astimezone() - last_dt).total_seconds() / 3600
+
+            if hours_elapsed >= ACCESS_DECAY_THRESHOLD_HOURS:
+                # 应用衰减
+                days_elapsed = hours_elapsed / 24.0
+                old_strength = props.get('strength', 1.0)
+                decay_rate = props.get('decay_rate', 0.95)
+                months_elapsed = days_elapsed / 30.0
+                new_strength = old_strength * (decay_rate ** months_elapsed)
+                new_strength = max(0.0, min(1.0, new_strength))
+            else:
+                # 刚访问过，不衰减
+                new_strength = props.get('strength', 1.0)
+        except (ValueError, TypeError) as e:
+            # last_accessed 格式错误，静默跳过衰减
+            new_strength = props.get('strength', 1.0)
+    else:
+        # 首次访问，strength 保持不变（已在创建时初始化为 1.0）
+        new_strength = props.get('strength', 1.0)
+
+    props['strength'] = new_strength
     props['last_accessed'] = now
 
     # 更新实体
@@ -388,7 +424,7 @@ def refresh_entity_strength(entity_id: str) -> Optional[float]:
         "entity": {
             "id": entity_id,
             "properties": {
-                "strength": 1.0,
+                "strength": new_strength,
                 "last_accessed": now
             },
             "updated": now
@@ -399,7 +435,7 @@ def refresh_entity_strength(entity_id: str) -> Optional[float]:
     # 追加到 graph.jsonl（带文件锁）
     _write_to_graph(json.dumps(update_operation, ensure_ascii=False) + '\n')
 
-    return 1.0
+    return new_strength
 
 
 def mark_entity_consolidated(entity_id: str, skillcard_id: str) -> bool:
@@ -622,19 +658,42 @@ def query_entities(entity_type: Optional[str] = None,
 def get_entity(entity_id: str, refresh_strength: bool = True) -> Optional[Dict]:
     """获取单个实体
 
+    访问时实时衰减：如果 last_accessed 超过 ACCESS_DECAY_THRESHOLD_HOURS 小时，
+    自动应用衰减计算。
+
     Args:
         entity_id: 实体 ID
-        refresh_strength: 是否刷新 strength（默认 True，访问时重置）
+        refresh_strength: 是否刷新 strength 并更新 last_accessed（默认 True）
     """
-    entities = load_all_entities()
-    entity = entities.get(entity_id)
+    entity = _read_entity_from_graph(entity_id)
+    if not entity:
+        return None
 
-    if entity and refresh_strength:
-        # 访问时刷新 strength
-        refresh_entity_strength(entity_id)
-        # 重新获取（已更新的实体）
-        entities = load_all_entities()
-        entity = entities.get(entity_id)
+    if refresh_strength:
+        # 访问时实时衰减
+        last_accessed = entity['properties'].get('last_accessed')
+        if last_accessed:
+            try:
+                last_dt = datetime.fromisoformat(last_accessed.replace('Z', '+00:00'))
+                hours_elapsed = (datetime.now().astimezone() - last_dt).total_seconds() / 3600
+
+                if hours_elapsed >= ACCESS_DECAY_THRESHOLD_HOURS:
+                    # 超过阈值，应用衰减
+                    days_elapsed = hours_elapsed / 24.0
+                    apply_decay_to_entity(entity_id, days_elapsed)
+                    # 重新读取以获取更新后的值
+                    entity = _read_entity_from_graph(entity_id)
+                else:
+                    # 刚访问过，只更新时间戳
+                    refresh_entity_strength(entity_id)
+                    entity = _read_entity_from_graph(entity_id)
+            except (ValueError, TypeError):
+                # last_accessed 格式错误，静默跳过
+                pass
+        else:
+            # 首次访问，初始化 strength
+            refresh_entity_strength(entity_id)
+            entity = _read_entity_from_graph(entity_id)
 
     return entity
 
