@@ -276,9 +276,9 @@ class MessageFilter:
 class LLMClient:
     """LLM 客户端 - 支持 OpenAI 兼容 API"""
 
-    def __init__(self, model: str = "glm-5", api_key: str = None,
+    def __init__(self, model: str = None, api_key: str = None,
                  base_url: str = None):
-        self.model = model
+        self.model = model or os.environ.get('OPENAI_MODEL', 'glm-5')
         self.api_key = api_key or os.environ.get('OPENAI_API_KEY', DEFAULT_API_KEY)
         self.base_url = base_url or os.environ.get('OPENAI_BASE_URL', DEFAULT_BASE_URL)
 
@@ -699,8 +699,8 @@ def main():
 
     parser.add_argument(
         '--model', '-m',
-        default='glm-5',
-        help='LLM 模型名称'
+        default=None,
+        help='LLM 模型名称 (默认从 OPENAI_MODEL 环境变量读取)'
     )
 
     parser.add_argument(
