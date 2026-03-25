@@ -92,16 +92,20 @@ ACCESS_DECAY_THRESHOLD_HOURS = 1
 def _write_to_graph(data: str):
     """写入 graph.jsonl（带文件锁）
 
-    使用 fcntl.flock 实现原子写入，防止并发写入冲突
+    使用 fcntl.flock 实现原子写入，防止并发写入冲突。
+    使用 'a' 模式避免 TOCTOU race（truncate-before-lock）。
     """
     lock_file = GRAPH_FILE.with_suffix('.lock')
-    with open(lock_file, 'w') as lock_f:
+    lock_f = open(lock_file, 'a')
+    try:
         fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
         try:
             with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
                 f.write(data)
         finally:
             fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+    finally:
+        lock_f.close()
 
 
 def ensure_ontology_dir():
@@ -337,30 +341,43 @@ def create_relation(from_id: str, rel_type: str, to_id: str, properties: Optiona
 
 
 def load_all_entities() -> Dict[str, Dict]:
-    """加载所有实体"""
+    """加载所有实体（带共享锁）
+
+    使用 fcntl.LOCK_SH 共享锁，允许并发读取。
+    与 _write_to_graph 的独占锁互斥，防止读到部分写入的数据。
+    """
     entities = {}
 
     if not GRAPH_FILE.exists():
         return entities
 
-    with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
+    lock_file = GRAPH_FILE.with_suffix('.lock')
+    lock_f = open(lock_file, 'a')
+    try:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_SH)
+        try:
+            with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
 
-            try:
-                operation = json.loads(line)
-                if operation['op'] == 'create':
-                    entity = operation['entity']
-                    entities[entity['id']] = entity
-                elif operation['op'] == 'update':
-                    entity_id = operation['entity']['id']
-                    if entity_id in entities:
-                        entities[entity_id]['properties'].update(operation['entity']['properties'])
-                        entities[entity_id]['updated'] = operation['entity']['updated']
-            except json.JSONDecodeError:
-                continue
+                    try:
+                        operation = json.loads(line)
+                        if operation['op'] == 'create':
+                            entity = operation['entity']
+                            entities[entity['id']] = entity
+                        elif operation['op'] == 'update':
+                            entity_id = operation['entity']['id']
+                            if entity_id in entities:
+                                entities[entity_id]['properties'].update(operation['entity']['properties'])
+                                entities[entity_id]['updated'] = operation['entity']['updated']
+                    except json.JSONDecodeError:
+                        continue
+        finally:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+    finally:
+        lock_f.close()
 
     return entities
 
@@ -585,25 +602,115 @@ def get_strength_distribution() -> Dict[str, Dict]:
     return distribution
 
 
+def compact_graph() -> Dict[str, int]:
+    """压缩 graph.jsonl — 保留每个实体的最新版本
+
+    读取所有操作，只保留每个实体的最新版本（create 或 update），
+    然后重写文件。可选的维护操作，用于减少文件大小。
+
+    Returns:
+        Dict with 'kept' (entities retained) and 'total_ops' (original operations)
+    """
+    import tempfile
+
+    if not GRAPH_FILE.exists():
+        return {'kept': 0, 'total_ops': 0}
+
+    # Step 1: Load with read lock — collect entities and relations
+    entities: Dict[str, Dict] = {}
+    relations: List[Dict] = []
+    total_ops = 0
+
+    lock_file = GRAPH_FILE.with_suffix('.lock')
+    lock_f = open(lock_file, 'a')
+    try:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_SH)
+        try:
+            with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        op = json.loads(line)
+                        total_ops += 1
+                        if op.get('op') == 'create':
+                            entities[op['entity']['id']] = op['entity']
+                        elif op.get('op') == 'update':
+                            eid = op['entity']['id']
+                            if eid in entities:
+                                entities[eid]['properties'].update(op['entity']['properties'])
+                                entities[eid]['updated'] = op['entity'].get('updated', op.get('timestamp', ''))
+                        elif op.get('op') == 'relate':
+                            relations.append(op)
+                    except json.JSONDecodeError:
+                        continue
+        finally:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+    finally:
+        lock_f.close()
+
+    if total_ops == len(entities) + len(relations):
+        # No compaction needed
+        return {'kept': len(entities), 'total_ops': total_ops}
+
+    # Step 2: Write compacted version atomically
+    compacted_lines = 0
+    tmp_file = GRAPH_FILE.with_suffix('.jsonl.tmp')
+    tmp_lock = GRAPH_FILE.with_suffix('.tmp.lock')
+
+    tmp_lock_f = open(tmp_lock, 'a')
+    try:
+        fcntl.flock(tmp_lock_f.fileno(), fcntl.LOCK_EX)
+        try:
+            with open(tmp_file, 'w', encoding='utf-8') as f:
+                for entity in entities.values():
+                    op = {'op': 'create', 'entity': entity, 'timestamp': entity.get('updated', entity.get('timestamp', ''))}
+                    f.write(json.dumps(op, ensure_ascii=False) + '\n')
+                    compacted_lines += 1
+                for rel in relations:
+                    f.write(json.dumps(rel, ensure_ascii=False) + '\n')
+                    compacted_lines += 1
+            # Atomic rename
+            tmp_file.rename(GRAPH_FILE)
+        finally:
+            fcntl.flock(tmp_lock_f.fileno(), fcntl.LOCK_UN)
+    finally:
+        tmp_lock_f.close()
+        if tmp_lock.exists():
+            tmp_lock.unlink()
+
+    return {'kept': len(entities), 'total_ops': total_ops, 'compacted_to': compacted_lines}
+
+
 def load_all_relations() -> List[Dict]:
-    """加载所有关系"""
+    """加载所有关系（带共享锁）"""
     relations = []
 
     if not GRAPH_FILE.exists():
         return relations
 
-    with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
+    lock_file = GRAPH_FILE.with_suffix('.lock')
+    lock_f = open(lock_file, 'a')
+    try:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_SH)
+        try:
+            with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
 
-            try:
-                operation = json.loads(line)
-                if operation['op'] == 'relate':
-                    relations.append(operation)
-            except json.JSONDecodeError:
-                continue
+                    try:
+                        operation = json.loads(line)
+                        if operation['op'] == 'relate':
+                            relations.append(operation)
+                    except json.JSONDecodeError:
+                        continue
+        finally:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+    finally:
+        lock_f.close()
 
     return relations
 
@@ -927,7 +1034,10 @@ def main():
     
     # stats 命令
     stats_parser = subparsers.add_parser('stats', help='显示统计信息')
-    
+
+    # compact 命令
+    compact_parser = subparsers.add_parser('compact', help='压缩 graph.jsonl，保留每个实体的最新版本')
+
     args = parser.parse_args()
     
     # 确保目录存在
@@ -1045,7 +1155,17 @@ def main():
             props = entity['properties']
             title = props.get('title') or props.get('name') or entity['id']
             print(f"  - {entity['id']}: {title} ({entity['type']})")
-    
+
+    elif args.command == 'compact':
+        result = compact_graph()
+        kept = result.get('kept', 0)
+        total = result.get('total_ops', 0)
+        compacted = result.get('compacted_to', kept)
+        if compacted == total:
+            print(f"✓ 图谱已是最优状态，无需压缩 ({kept} 个实体)")
+        else:
+            print(f"✓ 图谱压缩完成: {total} → {compacted} 行 (保留 {kept} 个实体最新版本)")
+
     else:
         parser.print_help()
 
