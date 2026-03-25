@@ -127,6 +127,31 @@ python3 scripts/decay_engine.py candidates
 
 ---
 
+### working_memory.py
+
+Context Window layered compression — three-level memory hierarchy.
+
+**Usage:**
+```bash
+python3 scripts/working_memory.py run --session-id xxx --level 2
+python3 scripts/working_memory.py recover --session-id xxx --level 3
+python3 scripts/working_memory.py stats
+```
+
+**Commands:**
+- `run --session-id <id> --level <1|2|3>` - Compress and save working memory
+- `recover --session-id <id> --level <1|2|3>` - Recover compressed content
+- `stats` - Show entry counts and sessions
+
+**Compression Levels:**
+- Level 1 (完整): Full content retention
+- Level 2 (摘要): LLM-generated summary with robust JSON extraction
+- Level 3 (关键事实): Only KG entities with strength >= threshold
+
+**File:** `~/.openclaw/workspace/memory/working_memory.jsonl` (JSON Lines)
+
+---
+
 ## Installation
 
 These scripts are bundled with the memory-optimization skill. They work in the OpenClaw workspace environment.
