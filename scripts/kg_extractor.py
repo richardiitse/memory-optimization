@@ -273,6 +273,7 @@ class MessageFilter:
 
 # ========== 3. LLM Client ==========
 
+# DEPRECATED: Use scripts/utils/llm_client.py instead
 class LLMClient:
     """LLM 客户端 - 支持 OpenAI 兼容 API"""
 

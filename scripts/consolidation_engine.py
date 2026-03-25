@@ -79,6 +79,7 @@ _llm_cache = LLMCache()
 
 # ========== LLM 客户端 (从 preference_engine 复用) ==========
 
+# DEPRECATED: Use scripts/utils/llm_client.py instead
 class LLMClient:
     """LLM 客户端 - 支持 OpenAI 兼容 API"""
 

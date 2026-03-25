@@ -105,7 +105,7 @@ SIMILARITY_PROMPT = """你是一个任务相似度判断专家。判断两个任
 - 只输出 JSON，不要有其他内容
 - is_same 为 true 表示实质相同，false 表示实质不同"""
 
-
+# DEPRECATED: Use scripts/utils/llm_client.py instead
 class LLMClient:
     """LLM 客户端 - 支持 OpenAI 兼容 API"""
 
