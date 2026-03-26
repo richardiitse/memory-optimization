@@ -10,6 +10,7 @@ Provides a single LLMClient implementation used by:
 
 import json
 import os
+import warnings
 import requests
 from typing import Dict, List, Optional
 
@@ -52,9 +53,9 @@ class LLMClient:
             LLM response text, or mock_data (or None) on failure
         """
         if not self.api_key:
-            print("Warning: No API key configured, using mock response")
             if mock_data is not None:
                 return mock_data() if callable(mock_data) else json.dumps(mock_data)
+            warnings.warn("No API key configured and no mock_data provided — returning None")
             return None
 
         # Transient error codes that warrant retry
@@ -96,6 +97,7 @@ class LLMClient:
                     print(f"Error: API returned {response.status_code}: {response.text[:200]}")
                     if mock_data is not None:
                         return mock_data() if callable(mock_data) else json.dumps(mock_data)
+                    warnings.warn(f"API error {response.status_code} and no mock_data — returning None")
                     return None
 
             except Exception as e:
@@ -108,10 +110,12 @@ class LLMClient:
                 print(f"Error calling LLM: {e}")
                 if mock_data is not None:
                     return mock_data() if callable(mock_data) else json.dumps(mock_data)
+                warnings.warn(f"LLM call failed after {max_retries} retries and no mock_data — returning None")
                 return None
 
         if mock_data is not None:
             return mock_data() if callable(mock_data) else json.dumps(mock_data)
+        warnings.warn(f"LLM call exhausted {max_retries} retries and no mock_data — returning None")
         return None
 
     def call_json(
