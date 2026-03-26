@@ -152,6 +152,54 @@ python3 scripts/working_memory.py stats
 
 ---
 
+---
+
+### memory_loader.py
+
+Phase 6: Proactive memory recovery — staged loading at agent startup.
+
+**Usage:**
+```bash
+python3 scripts/memory_loader.py stage1
+python3 scripts/memory_loader.py stage2 [--project-id <id>]
+python3 scripts/memory_loader.py stage3 [--context "..."]
+python3 scripts/memory_loader.py recover [--project-id <id>]
+python3 scripts/memory_loader.py stats
+```
+
+**Stages:**
+- Stage 1: Core identity — Preferences (strength >= 0.8), recent Decisions/Lessons (>= 0.8, within 30d)
+- Stage 2: Episodic memory — Decisions by project, pending Commitments, Findings (strength >= 0.5)
+- Stage 3: Semantic memory — SkillCards (strength >= 0.5), proactive hints
+
+**Graceful degradation:** KG unavailable → empty results + error field.
+
+---
+
+### memory_dashboard.py
+
+Phase 7: Memory health dashboard — visualize the complete memory system state.
+
+**Usage:**
+```bash
+python3 scripts/memory_dashboard.py              # summary view (default)
+python3 scripts/memory_dashboard.py full         # complete dashboard
+python3 scripts/memory_dashboard.py decay        # decay forecast
+python3 scripts/memory_dashboard.py compact        # one-line summary
+python3 scripts/memory_dashboard.py json          # JSON output (for other tools)
+```
+
+**Views:**
+- Health Score (Grade A-F) + strength bar chart
+- Memory strength histogram (10% buckets)
+- Consolidation progress (SkillCards, ConflictReviews, pending Episodes)
+- Storage stats (file size, entity count, by-type breakdown)
+- Decay forecast (30-day, entities at risk)
+- Age distribution (by creation time)
+- Tag cloud + provenance breakdown
+
+---
+
 ## Installation
 
 These scripts are bundled with the memory-optimization skill. They work in the OpenClaw workspace environment.

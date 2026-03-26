@@ -111,6 +111,24 @@ python3 scripts/memory_loader.py recover [--project-id <id>]
 python3 scripts/memory_loader.py stats
 ```
 
+### Memory Health Dashboard (Phase 7)
+```bash
+# Summary view (default): Health Score + Strength histogram + Consolidation + Storage
+python3 scripts/memory_dashboard.py
+
+# Full dashboard: all views
+python3 scripts/memory_dashboard.py full
+
+# Decay forecast: entities at risk
+python3 scripts/memory_dashboard.py decay
+
+# Compact one-liner
+python3 scripts/memory_dashboard.py compact
+
+# JSON output (for other tools)
+python3 scripts/memory_dashboard.py json
+```
+
 ### Run Tests
 ```bash
 # Run all tests
@@ -148,6 +166,7 @@ memory-optimization/
 │   ├── decay_engine.py         # Batch decay engine for weak entities
 │   ├── working_memory.py       # Phase 5: Context Window layered compression
 │   ├── memory_loader.py        # Phase 6: Proactive memory recovery (staged loading)
+│   ├── memory_dashboard.py     # Phase 7: Memory health dashboard
 │   ├── utils/
 │   │   ├── __init__.py         # Shared utilities package
 │   │   └── llm_client.py       # Unified LLM client
@@ -158,7 +177,8 @@ memory-optimization/
 │   ├── test_preference_engine.py  # Preference engine tests
 │   ├── test_decay_engine.py   # Decay engine tests
 │   ├── test_working_memory.py # Working memory tests
-│   └── test_memory_loader.py  # Memory loader tests
+│   ├── test_memory_loader.py  # Memory loader tests
+│   └── test_memory_dashboard.py  # Memory dashboard tests
 ├── ontology/
 │   ├── memory-schema.yaml      # KG entity schema
 │   ├── graph.jsonl             # KG data (gitignored)
