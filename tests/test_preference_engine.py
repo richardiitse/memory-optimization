@@ -195,43 +195,42 @@ class TestLLMClient:
     """Tests for LLMClient"""
 
     def test_mock_response(self):
-        """Test mock response when no API key"""
+        """Test mock_response() returns JSON string for given data"""
         from preference_engine import LLMClient
 
         client = LLMClient(api_key="", model="test")
-        response = client._mock_response()
+        response = client.mock_response({"is_same": False, "reasoning": "test"})
 
         data = json.loads(response)
         assert "is_same" in data
         assert data["is_same"] is False
 
-    def test_call_without_api_key_uses_mock(self):
-        """Test LLMClient uses mock when no API key"""
+    def test_call_without_api_key_returns_none(self):
+        """Test LLMClient returns None when no API key and no mock_data"""
         from preference_engine import LLMClient
         from unittest.mock import patch
 
-        # Patch os.environ to simulate no API key configured,
-        # since kg_extractor loads .env at import time which sets OPENAI_API_KEY
         with patch.dict('os.environ', {'OPENAI_API_KEY': ''}, clear=False):
             client = LLMClient(api_key="")
             result = client.call([])
 
-        assert result is not None
-        assert "is_same" in result
+        assert result is None
 
-    def test_api_timeout_handled(self):
-        """Test API timeout is handled gracefully"""
+    def test_api_timeout_handled_with_mock_data(self):
+        """Test API timeout is handled gracefully with mock_data fallback"""
         from preference_engine import LLMClient
 
         client = LLMClient(api_key="test-key")
+        mock_data = {"is_same": False, "reasoning": "timeout fallback"}
 
         with patch('requests.post') as mock_post:
             mock_post.side_effect = Exception("timeout")
-            result = client.call([])
+            result = client.call([], mock_data=mock_data)
 
-            # Should fall back to mock response
+            # Should fall back to mock_data
             assert result is not None
-            assert "is_same" in result
+            data = json.loads(result)
+            assert data["is_same"] is False
 
 
 if __name__ == "__main__":

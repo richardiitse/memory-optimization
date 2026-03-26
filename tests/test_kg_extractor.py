@@ -88,8 +88,8 @@ class TestLLMClient:
 
     def test_mock_response(self):
         """测试模拟响应"""
-        client = LLMClient(api_key='')  # 无 API key，触发 mock
-        response = client._mock_response([{"role": "user", "content": "test"}])
+        client = LLMClient(api_key='')  # 无 API key
+        response = client.mock_response({"entities": [{"type": "Decision", "title": "Test"}]})
 
         assert response is not None
         data = json.loads(response)
