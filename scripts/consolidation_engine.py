@@ -29,6 +29,7 @@ WORKSPACE_ROOT = SCRIPT_DIR.parent
 
 # 导入 memory_ontology 和 preference_engine
 sys.path.insert(0, str(SCRIPT_DIR))
+from utils.llm_client import LLMClient  # noqa: E402
 
 # ========== LLM 判断缓存 (从 preference_engine 复用) ==========
 
@@ -76,69 +77,7 @@ class LLMCache:
 # 全局缓存实例
 _llm_cache = LLMCache()
 
-
-# ========== LLM 客户端 (从 preference_engine 复用) ==========
-
-# DEPRECATED: Use scripts/utils/llm_client.py instead
-class LLMClient:
-    """LLM 客户端 - 支持 OpenAI 兼容 API"""
-
-    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
-        self.api_key = api_key or os.environ.get('OPENAI_API_KEY', '')
-        self.base_url = base_url or os.environ.get('OPENAI_BASE_URL', 'https://open.bigmodel.cn/api/paas/v4')
-        self.model = model or os.environ.get('OPENAI_MODEL', 'glm-5')
-
-    def call(self, messages: List[Dict], temperature: float = 0.3) -> Optional[str]:
-        """调用 LLM
-
-        Returns:
-            LLM 响应文本，失败时返回 None
-        """
-        if not self.api_key:
-            print("Warning: No API key configured, using mock response")
-            return self._mock_response()
-
-        try:
-            import requests
-
-            headers = {
-                'Authorization': f'Bearer {self.api_key}',
-                'Content-Type': 'application/json'
-            }
-
-            payload = {
-                'model': self.model,
-                'messages': messages,
-                'temperature': temperature
-            }
-
-            response = requests.post(
-                f'{self.base_url}/chat/completions',
-                headers=headers,
-                json=payload,
-                timeout=60
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                return result['choices'][0]['message']['content']
-            else:
-                print(f"Error: API returned {response.status_code}: {response.text}")
-                return None
-
-        except Exception as e:
-            print(f"Error calling LLM: {e}")
-            return self._mock_response()
-
-    def _mock_response(self) -> str:
-        """模拟响应（用于测试）"""
-        return json.dumps({
-            "decision": "keep_separate",
-            "reasoning": "Mock mode: assuming entities are different",
-            "summary": "",
-            "confidence": 0.0
-        })
-
+# (LLMClient imported from utils.llm_client above)
 
 # ========== Consolidation Prompt ==========
 

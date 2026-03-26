@@ -36,19 +36,25 @@ class LLMClient:
         self.model = model or os.environ.get('OPENAI_MODEL', self.DEFAULT_MODEL)
 
     def call(
-        self, messages: List[Dict], temperature: float = 0.7
+        self, messages: List[Dict], temperature: float = 0.7,
+        mock_data=None
     ) -> Optional[str]:
         """Call LLM with messages and retry on transient failures.
 
         Args:
             messages: List of message dicts with 'role' and 'content'
             temperature: Sampling temperature (0.0-2.0)
+            mock_data: Fallback data returned when API is unavailable.
+                Can be a dict (JSON-serialized) or a callable returning a str.
+                If None, returns None on failure.
 
         Returns:
-            LLM response text, or None on failure (caller handles fallback)
+            LLM response text, or mock_data (or None) on failure
         """
         if not self.api_key:
             print("Warning: No API key configured, using mock response")
+            if mock_data is not None:
+                return mock_data() if callable(mock_data) else json.dumps(mock_data)
             return None
 
         # Transient error codes that warrant retry
@@ -88,6 +94,8 @@ class LLMClient:
                     continue
                 else:
                     print(f"Error: API returned {response.status_code}: {response.text[:200]}")
+                    if mock_data is not None:
+                        return mock_data() if callable(mock_data) else json.dumps(mock_data)
                     return None
 
             except Exception as e:
@@ -98,8 +106,12 @@ class LLMClient:
                     backoff = min(backoff * 2, 30)
                     continue
                 print(f"Error calling LLM: {e}")
+                if mock_data is not None:
+                    return mock_data() if callable(mock_data) else json.dumps(mock_data)
                 return None
 
+        if mock_data is not None:
+            return mock_data() if callable(mock_data) else json.dumps(mock_data)
         return None
 
     def call_json(

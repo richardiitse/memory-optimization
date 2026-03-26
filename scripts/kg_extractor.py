@@ -27,6 +27,9 @@ SCRIPT_DIR = Path(__file__).parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
 ONTOLOGY_DIR = WORKSPACE_ROOT / "ontology"
 KG_LOG_FILE = ONTOLOGY_DIR / "kg_extraction_log.jsonl"
+sys.path.insert(0, str(SCRIPT_DIR))  # enable utils.llm_client import
+
+from utils.llm_client import LLMClient  # noqa: E402
 
 # 默认配置
 DEFAULT_KG_DIR = ""  # 开发环境使用 ontology/
@@ -271,75 +274,7 @@ class MessageFilter:
         return merged
 
 
-# ========== 3. LLM Client ==========
-
-# DEPRECATED: Use scripts/utils/llm_client.py instead
-class LLMClient:
-    """LLM 客户端 - 支持 OpenAI 兼容 API"""
-
-    def __init__(self, model: str = None, api_key: str = None,
-                 base_url: str = None):
-        self.model = model or os.environ.get('OPENAI_MODEL', 'glm-5')
-        self.api_key = api_key or os.environ.get('OPENAI_API_KEY', DEFAULT_API_KEY)
-        self.base_url = base_url or os.environ.get('OPENAI_BASE_URL', DEFAULT_BASE_URL)
-
-    def call(self, messages: List[Dict], temperature: float = 0.7) -> Optional[str]:
-        """调用 LLM"""
-        api_key = self.api_key or os.environ.get('OPENAI_API_KEY', '')
-        if not api_key:
-            print("Warning: No API key configured, using mock response")
-            return self._mock_response(messages)
-
-        try:
-            import requests
-
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-
-            payload = {
-                'model': self.model,
-                'messages': messages,
-                'temperature': temperature
-            }
-
-            response = requests.post(
-                f'{self.base_url}/chat/completions',
-                headers=headers,
-                json=payload,
-                timeout=60
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                return result['choices'][0]['message']['content']
-            else:
-                print(f"Error: API returned {response.status_code}: {response.text}")
-                return None
-
-        except ImportError:
-            print("Warning: requests not installed, using mock response")
-            return self._mock_response(messages)
-        except Exception as e:
-            print(f"Error calling LLM: {e}")
-            return self._mock_response(messages)
-
-    def _mock_response(self, messages: List[Dict]) -> str:
-        """模拟响应（用于测试）"""
-        return json.dumps({
-            "entities": [
-                {
-                    "type": "Decision",
-                    "title": "测试决策",
-                    "rationale": "这是测试模式下的模拟决策",
-                    "made_at": datetime.now().astimezone().isoformat(),
-                    "confidence": 0.9,
-                    "tags": ["#test", "#extracted"]
-                }
-            ]
-        })
-
+# (LLMClient imported from utils.llm_client above)
 
 # ========== 4. Entity Extractor ==========
 
