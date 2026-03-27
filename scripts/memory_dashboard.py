@@ -21,13 +21,19 @@ Memory Health Dashboard — 可视化记忆系统健康状态
 import argparse
 import json
 import math
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 SCRIPT_DIR = Path(__file__).parent
-KG_DIR = SCRIPT_DIR.parent / 'ontology'
+_kg_dir = os.environ.get('KG_DIR', '')
+KG_DIR = Path(_kg_dir) if _kg_dir else SCRIPT_DIR.parent / 'ontology'
+# Validate KG_DIR stays within workspace root (prevent path traversal)
+_workspace_root = (SCRIPT_DIR.parent).resolve()
+if not KG_DIR.resolve().is_relative_to(_workspace_root):
+    raise ValueError(f"KG_DIR must be within workspace root: {_workspace_root}")
 GRAPH_FILE = KG_DIR / 'graph.jsonl'
 
 # Add scripts directory to path for imports
