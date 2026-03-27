@@ -97,8 +97,10 @@ See [scripts/README.md](scripts/README.md) for detailed usage:
 - `kg_extractor.py` - KG extraction from agent sessions (LLM-driven)
 - `consolidation_engine.py` - Phase 3: consolidate similar episodes into SkillCards
 - `decay_engine.py` - Batch decay engine for memory strength management
+- `entity_dedup.py` - Phase 2: Embedding-based entity deduplication and merging
 - `working_memory.py` - Phase 5: Context Window layered compression (3 levels)
 - `memory_loader.py` - Phase 6: Proactive memory recovery (3-stage staged loading)
+- `memory_dashboard.py` - Phase 7: Memory health dashboard (Health Score, decay forecast)
 
 ## References
 

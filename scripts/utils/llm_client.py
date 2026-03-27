@@ -138,6 +138,48 @@ class LLMClient:
         except json.JSONDecodeError:
             return None
 
+    def embed(self, text: str) -> Optional[List[float]]:
+        """Compute embedding vector for text using the embeddings API.
+
+        Args:
+            text: Text to embed
+
+        Returns:
+            List of floats (embedding vector), or None on failure
+        """
+        if not self.api_key:
+            warnings.warn("No API key — cannot compute embedding")
+            return None
+
+        try:
+            headers = {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json'
+            }
+
+            payload = {
+                'model': self.model,
+                'input': text
+            }
+
+            response = requests.post(
+                f'{self.base_url}/embeddings',
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                return result['data'][0]['embedding']
+            else:
+                print(f"Embedding error: API returned {response.status_code}: {response.text[:200]}")
+                return None
+
+        except Exception as e:
+            print(f"Error computing embedding: {e}")
+            return None
+
     def mock_response(self, mock_data: Dict) -> str:
         """Generate a mock response for testing.
 

@@ -102,6 +102,39 @@ python3 scripts/consolidation_engine.py status
 
 ---
 
+### entity_dedup.py
+
+Phase 2: Embedding-based entity deduplication — merges similar entities using cosine similarity.
+
+**Usage:**
+```bash
+# Dry-run (show merge candidates without writing)
+python3 scripts/entity_dedup.py run --dry-run
+
+# Run deduplication (actual merge)
+python3 scripts/entity_dedup.py run
+
+# Specify similarity threshold
+python3 scripts/entity_dedup.py run --threshold 0.90
+
+# Show deduplication statistics
+python3 scripts/entity_dedup.py stats
+```
+
+**Features:**
+- Cosine similarity threshold: 0.85 (default)
+- Keeps earliest timestamp as canonical entity
+- Accumulates `frequency` property across duplicates
+- Merges tags and provenance
+- Chain merge flattening (e3→e2→e1 → e3→e1)
+- 24h embedding cache to avoid repeated API calls
+
+**Entity types:** Decision, Finding, LessonLearned, Commitment
+
+**API Note:** Requires embedding API support. GLM-5 models may need correct `OPENAI_BASE_URL` embeddings endpoint path.
+
+---
+
 ### decay_engine.py
 
 Batch decay engine for memory strength management.
