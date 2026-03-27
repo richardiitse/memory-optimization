@@ -102,6 +102,27 @@ python3 scripts/consolidation_engine.py status
 
 ---
 
+### preference_engine.py
+
+Phase 2: User preference inference — determines if tasks are "substantially the same" using LLM.
+
+**Usage:**
+```bash
+# Extract preferences from a session
+python3 scripts/preference_engine.py extract --session-id <id>
+
+# Determine if two tasks are similar
+python3 scripts/preference_engine.py infer-preference --task-a "xxx" --task-b "yyy"
+
+# List all inferred preferences
+python3 scripts/preference_engine.py list
+
+# Clear preference cache
+python3 scripts/preference_engine.py cache-clear
+```
+
+---
+
 ### entity_dedup.py
 
 Phase 2: Embedding-based entity deduplication — merges similar entities using cosine similarity.
