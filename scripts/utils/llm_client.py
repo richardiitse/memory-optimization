@@ -23,6 +23,9 @@ class LLMClient:
 
     DEFAULT_MODEL = 'glm-5'
     DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'
+    # Embeddings use a different model and endpoint on bigmodel.cn
+    DEFAULT_EMBED_MODEL = 'embedding-2'
+    DEFAULT_EMBED_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'
 
     def __init__(
         self,
@@ -35,6 +38,13 @@ class LLMClient:
             'OPENAI_BASE_URL', self.DEFAULT_BASE_URL
         )
         self.model = model or os.environ.get('OPENAI_MODEL', self.DEFAULT_MODEL)
+        # Embedding-specific settings (may differ from chat model)
+        self.embed_base_url = os.environ.get(
+            'OPENAI_EMBED_BASE_URL', self.DEFAULT_EMBED_BASE_URL
+        )
+        self.embed_model = os.environ.get(
+            'OPENAI_EMBED_MODEL', self.DEFAULT_EMBED_MODEL
+        )
 
     def call(
         self, messages: List[Dict], temperature: float = 0.7,
@@ -158,12 +168,12 @@ class LLMClient:
             }
 
             payload = {
-                'model': self.model,
+                'model': self.embed_model,
                 'input': text
             }
 
             response = requests.post(
-                f'{self.base_url}/embeddings',
+                f'{self.embed_base_url}/embeddings',
                 headers=headers,
                 json=payload,
                 timeout=30
