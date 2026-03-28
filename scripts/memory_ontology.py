@@ -28,11 +28,6 @@ import yaml
 # 生产环境: /root/.openclaw/workspace/memory/ontology/
 SCRIPT_DIR = Path(__file__).parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
-_kg_dir = os.environ.get('KG_DIR', '')  # 可配置的知识图谱目录
-ONTOLOGY_DIR = Path(_kg_dir) if _kg_dir else WORKSPACE_ROOT / "ontology"
-GRAPH_FILE = ONTOLOGY_DIR / "graph.jsonl"
-SCHEMA_FILE = ONTOLOGY_DIR / "memory-schema.yaml"
-BASE_SCHEMA_FILE = ONTOLOGY_DIR / "schema.yaml"
 
 
 def load_env_file():
@@ -61,8 +56,15 @@ def load_env_file():
                 os.environ[key] = value
 
 
-# 加载 .env 文件（如果存在）
+# 加载 .env 文件（必须在读取 KG_DIR 之前）
 load_env_file()
+
+# 现在根据环境变量设置路径
+_kg_dir = os.environ.get('KG_DIR', '')  # 可配置的知识图谱目录
+ONTOLOGY_DIR = Path(_kg_dir) if _kg_dir else WORKSPACE_ROOT / "ontology"
+GRAPH_FILE = ONTOLOGY_DIR / "graph.jsonl"
+SCHEMA_FILE = ONTOLOGY_DIR / "memory-schema.yaml"
+BASE_SCHEMA_FILE = ONTOLOGY_DIR / "schema.yaml"
 
 # ========== Phase 1b: 记忆进化字段配置 ==========
 
@@ -502,7 +504,8 @@ def apply_decay_to_entity(entity_id: str, days_elapsed: float) -> Optional[float
     Returns:
         新的 strength 值，如果实体不存在返回 None
     """
-    entity = get_entity(entity_id)
+    # 使用 _read_entity_from_graph 避免递归调用 get_entity
+    entity = _read_entity_from_graph(entity_id)
     if not entity:
         return None
 
