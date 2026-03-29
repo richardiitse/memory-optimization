@@ -149,6 +149,8 @@ class EmbedCache:
         """Get cached embedding if still valid."""
         if not text:
             return None  # Empty text can collide on hash — skip cache
+        # Note: MD5 is non-cryptographic here (text similarity cache, not security-critical).
+        # Collision risk is negligible in practice. SHA-256 would be marginally safer.
         text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
         if text_hash not in self._cache:
             return None
