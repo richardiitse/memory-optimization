@@ -23,9 +23,10 @@ class LLMClient:
 
     DEFAULT_MODEL = 'glm-5'
     DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'
-    # Embeddings use a different model and endpoint on bigmodel.cn
-    DEFAULT_EMBED_MODEL = 'embedding-2'
-    DEFAULT_EMBED_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'
+    # Embedding 模型配置 — 默认本地 Ollama qwen3-embedding
+    # 可通过环境变量 OPENAI_EMBED_BASE_URL / OPENAI_EMBED_MODEL 覆盖
+    DEFAULT_EMBED_MODEL = 'qwen3-embedding'
+    DEFAULT_EMBED_BASE_URL = 'http://localhost:11434/api'
 
     def __init__(
         self,
@@ -157,31 +158,42 @@ class LLMClient:
         Returns:
             List of floats (embedding vector), or None on failure
         """
-        if not self.api_key:
+        # Skip API key check for local Ollama (no auth needed)
+        is_local = self.embed_base_url.startswith('http://localhost')
+        if not is_local and not self.api_key:
             warnings.warn("No API key — cannot compute embedding")
             return None
 
         try:
-            headers = {
-                'Authorization': f'Bearer {self.api_key}',
-                'Content-Type': 'application/json'
-            }
+            headers = {'Content-Type': 'application/json'}
+            if self.api_key and not is_local:
+                headers['Authorization'] = f'Bearer {self.api_key}'
 
-            payload = {
-                'model': self.embed_model,
-                'input': text
-            }
+            # Ollama uses 'prompt', OpenAI-compatible APIs use 'input'
+            if is_local:
+                payload = {'model': self.embed_model, 'prompt': text}
+            else:
+                payload = {'model': self.embed_model, 'input': text}
 
             response = requests.post(
                 f'{self.embed_base_url}/embeddings',
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=30,
+                proxies={'http': None, 'https': None} if is_local else None
             )
 
             if response.status_code == 200:
                 result = response.json()
-                return result['data'][0]['embedding']
+                # OpenAI format: {"data":[{"embedding": [...]}]}
+                # Ollama format: {"embedding": [...]}
+                if 'data' in result:
+                    return result['data'][0]['embedding']
+                elif 'embedding' in result:
+                    return result['embedding']
+                else:
+                    print(f"Embedding error: unexpected response format: {response.text[:200]}")
+                    return None
             else:
                 print(f"Embedding error: API returned {response.status_code}: {response.text[:200]}")
                 return None
