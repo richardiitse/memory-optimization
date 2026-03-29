@@ -10,7 +10,7 @@ Automated 3-minute daily memory maintenance script.
 
 **Usage:**
 ```bash
-./memory/daily-cleanup.sh
+./scripts/daily-cleanup.sh
 ```
 
 **Features:**

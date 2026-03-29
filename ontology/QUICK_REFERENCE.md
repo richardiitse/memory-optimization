@@ -121,7 +121,7 @@ LessonLearned ── lesson_from ── [Decision, Finding, Task, Project]
 ## 📁 文件位置
 
 ```
-memory/ontology/
+ontology/
 ├── graph.jsonl              # 图谱数据
 ├── memory-schema.yaml       # Schema 定义
 ├── entity-templates.md      # 实体模板
@@ -188,25 +188,18 @@ python3 scripts/memory_ontology.py export --output memory/kg-export.md
 
 ## 📊 当前状态
 
-**实体总数**: 18  
-**关系总数**: 15  
+**实体总数**: 790+ (see `python3 scripts/memory_dashboard.py --view json` for current count)
 **验证状态**: ✅ 通过
-
-**记忆实体**:
-- Decision: 1
-- Finding: 1
-- LessonLearned: 1
-- Commitment: 1
 
 ---
 
 ## 📞 完整文档
 
-- **集成指南**: `memory/ontology/INTEGRATION.md`
-- **实体模板**: `memory/ontology/entity-templates.md`
-- **实施总结**: `memory/ontology/IMPLEMENTATION_SUMMARY.md`
-- **Schema**: `memory/ontology/memory-schema.yaml`
+- **集成指南**: `ontology/INTEGRATION.md`
+- **实体模板**: `ontology/entity-templates.md`
+- **实施总结**: `ontology/IMPLEMENTATION_SUMMARY.md`
+- **Schema**: `ontology/memory-schema.yaml`
 
 ---
 
-*版本：v1.0 | 最后更新：2026-03-12 | 心炙 🔥*
+*版本：1.0.2 | 最后更新：2026-03-29*

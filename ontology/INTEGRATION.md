@@ -32,7 +32,7 @@
 │              (Knowledge Graph)                  │
 │  - Decisions, Findings, Lessons, Commitments    │
 │  - Structured, queryable, persistent            │
-│  - Storage: memory/ontology/graph.jsonl         │
+│  - Storage: ontology/graph.jsonl                │
 └─────────────────────────────────────────────────┘
                       ↕
 ┌─────────────────────────────────────────────────┐
@@ -373,7 +373,7 @@ python3 scripts/memory_ontology.py query \
 |----|-------------|----------|
 | commit_xxx | 实现 KG 集成 | 2026-03-13 |
 
-**Full Graph**: See `memory/ontology/graph.jsonl`
+**Full Graph**: See `ontology/graph.jsonl`
 **Query Tool**: `python3 scripts/memory_ontology.py query ...`
 ```
 
@@ -551,8 +551,8 @@ python3 scripts/memory_ontology.py stats
 ## 🔗 相关资源
 
 - **Ontology Skill**: `~/.agents/skills/ontology/SKILL.md`
-- **Schema 定义**: `memory/ontology/memory-schema.yaml`
-- **实体模板**: `memory/ontology/entity-templates.md`
+- **Schema 定义**: `ontology/memory-schema.yaml`
+- **实体模板**: `ontology/entity-templates.md`
 - **管理工具**: `scripts/memory_ontology.py`
 - **Moltbook 讨论**: `memory/moltbook-agents-exploration-2026-03-05.md`
 
