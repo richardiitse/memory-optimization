@@ -165,16 +165,9 @@ LessonLearned ── lesson_from ── [Decision, Finding, Task, Project]
 ## 📊 Current State
 
 **Graph Statistics**:
-- Total entities: 18
-- Total relations: 15
-- Entity types: 9 (Milestone, Goal, Skill, Person, Project, Decision, Finding, LessonLearned, Commitment)
+- Total entities: 790+ (run `python3 scripts/memory_dashboard.py --view json` for current count)
+- Entity types: 9+ (Milestone, Goal, Skill, Person, Project, Decision, Finding, LessonLearned, Commitment, SkillCard, Episode, ConflictReview)
 - Validation status: ✅ Pass
-
-**Memory Entity Breakdown**:
-- Decision: 1
-- Finding: 1
-- LessonLearned: 1
-- Commitment: 1
 
 ---
 
@@ -295,15 +288,13 @@ Add to `memory/YYYY-MM-DD.md`:
 
 ## 🔗 Files Created
 
-| File | Purpose | Size |
-|------|---------|------|
-| `memory/ontology/memory-schema.yaml` | Schema definition | 13.8 KB |
-| `memory/ontology/entity-templates.md` | Entity templates | 11.0 KB |
-| `memory/ontology/INTEGRATION.md` | Integration guide | 11.8 KB |
-| `scripts/memory_ontology.py` | Management tool | 21.0 KB |
-| **This file** | Implementation summary | ~8 KB |
-
-**Total**: ~65 KB of documentation and tools
+| File | Purpose |
+|------|---------|
+| `ontology/memory-schema.yaml` | Schema definition |
+| `ontology/entity-templates.md` | Entity templates |
+| `ontology/INTEGRATION.md` | Integration guide |
+| `scripts/memory_ontology.py` | Management tool |
+| **This file** | Implementation summary |
 
 ---
 
@@ -370,7 +361,6 @@ For questions or issues:
 
 ---
 
-**Implementation Complete** ✅  
-**Version**: v1.0  
-**Date**: 2026-03-12  
-**Agent**: 心炙 (Xīn Zhì) 🔥
+**Implementation Complete** ✅
+**Version**: 1.0.2
+**Date**: 2026-03-29
