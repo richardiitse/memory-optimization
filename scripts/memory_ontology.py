@@ -90,23 +90,61 @@ DECAY_THRESHOLD = 0.10
 # 访问时衰减阈值（小时），超过此时间才触发衰减
 ACCESS_DECAY_THRESHOLD_HOURS = 1
 
+# 文件锁超时（秒）
+LOCK_TIMEOUT_SECONDS = 10
+
+
+def _acquire_lock_with_timeout(lock_file_path: Path, lock_type: int, timeout: float = LOCK_TIMEOUT_SECONDS) -> Any:
+    """使用非阻塞 flock + 重试获取锁，超时后抛出明确异常。
+
+    Args:
+        lock_file_path: .lock 文件路径
+        lock_type: fcntl.LOCK_EX 或 fcntl.LOCK_SH
+        timeout: 超时秒数
+
+    Returns:
+        lock 文件对象（调用方用完后需 unlock 并 close）
+
+    Raises:
+        TimeoutError: 锁获取超时
+    """
+    import time as time_module
+    lock_f = open(lock_file_path, 'a')
+    start = time_module.time()
+    interval = 0.1  # 初始重试间隔
+    max_interval = 1.0
+    while True:
+        try:
+            fcntl.flock(lock_f.fileno(), lock_type | fcntl.LOCK_NB)
+            return lock_f
+        except BlockingIOError:
+            elapsed = time_module.time() - start
+            if elapsed >= timeout:
+                lock_f.close()
+                lock_type_name = "EX" if lock_type == fcntl.LOCK_EX else "SH"
+                raise TimeoutError(
+                    f"KG lock timeout after {timeout}s waiting for {'exclusive' if lock_type == fcntl.LOCK_EX else 'shared'} lock. "
+                    f"Another process may be holding the lock. "
+                    f"File: {lock_file_path}"
+                )
+            time_module.sleep(interval)
+            interval = min(interval * 1.5, max_interval)
+
 
 def _write_to_graph(data: str):
     """写入 graph.jsonl（带文件锁）
 
     使用 fcntl.flock 实现原子写入，防止并发写入冲突。
     使用 'a' 模式避免 TOCTOU race（truncate-before-lock）。
+    锁获取有 10 秒超时，防止死锁导致永久阻塞。
     """
     lock_file = GRAPH_FILE.with_suffix('.lock')
-    lock_f = open(lock_file, 'a')
+    lock_f = _acquire_lock_with_timeout(lock_file, fcntl.LOCK_EX)
     try:
-        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
-        try:
-            with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
-                f.write(data)
-        finally:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+        with open(GRAPH_FILE, 'a', encoding='utf-8') as f:
+            f.write(data)
     finally:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
         lock_f.close()
 
 
@@ -347,6 +385,7 @@ def load_all_entities() -> Dict[str, Dict]:
 
     使用 fcntl.LOCK_SH 共享锁，允许并发读取。
     与 _write_to_graph 的独占锁互斥，防止读到部分写入的数据。
+    锁获取有 10 秒超时，防止死锁导致永久阻塞。
     """
     entities = {}
 
@@ -354,31 +393,28 @@ def load_all_entities() -> Dict[str, Dict]:
         return entities
 
     lock_file = GRAPH_FILE.with_suffix('.lock')
-    lock_f = open(lock_file, 'a')
+    lock_f = _acquire_lock_with_timeout(lock_file, fcntl.LOCK_SH)
     try:
-        fcntl.flock(lock_f.fileno(), fcntl.LOCK_SH)
-        try:
-            with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
+        with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
 
-                    try:
-                        operation = json.loads(line)
-                        if operation['op'] == 'create':
-                            entity = operation['entity']
-                            entities[entity['id']] = entity
-                        elif operation['op'] == 'update':
-                            entity_id = operation['entity']['id']
-                            if entity_id in entities:
-                                entities[entity_id]['properties'].update(operation['entity']['properties'])
-                                entities[entity_id]['updated'] = operation['entity']['updated']
-                    except json.JSONDecodeError:
-                        continue
-        finally:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+                try:
+                    operation = json.loads(line)
+                    if operation['op'] == 'create':
+                        entity = operation['entity']
+                        entities[entity['id']] = entity
+                    elif operation['op'] == 'update':
+                        entity_id = operation['entity']['id']
+                        if entity_id in entities:
+                            entities[entity_id]['properties'].update(operation['entity']['properties'])
+                            entities[entity_id]['updated'] = operation['entity']['updated']
+                except json.JSONDecodeError:
+                    continue
     finally:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
         lock_f.close()
 
     return entities
@@ -614,7 +650,6 @@ def compact_graph() -> Dict[str, int]:
     Returns:
         Dict with 'kept' (entities retained) and 'total_ops' (original operations)
     """
-    import tempfile
 
     if not GRAPH_FILE.exists():
         return {'kept': 0, 'total_ops': 0}
@@ -625,32 +660,29 @@ def compact_graph() -> Dict[str, int]:
     total_ops = 0
 
     lock_file = GRAPH_FILE.with_suffix('.lock')
-    lock_f = open(lock_file, 'a')
+    lock_f = _acquire_lock_with_timeout(lock_file, fcntl.LOCK_SH)
     try:
-        fcntl.flock(lock_f.fileno(), fcntl.LOCK_SH)
-        try:
-            with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        op = json.loads(line)
-                        total_ops += 1
-                        if op.get('op') == 'create':
-                            entities[op['entity']['id']] = op['entity']
-                        elif op.get('op') == 'update':
-                            eid = op['entity']['id']
-                            if eid in entities:
-                                entities[eid]['properties'].update(op['entity']['properties'])
-                                entities[eid]['updated'] = op['entity'].get('updated', op.get('timestamp', ''))
-                        elif op.get('op') == 'relate':
-                            relations.append(op)
-                    except json.JSONDecodeError:
-                        continue
-        finally:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+        with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    op = json.loads(line)
+                    total_ops += 1
+                    if op.get('op') == 'create':
+                        entities[op['entity']['id']] = op['entity']
+                    elif op.get('op') == 'update':
+                        eid = op['entity']['id']
+                        if eid in entities:
+                            entities[eid]['properties'].update(op['entity']['properties'])
+                            entities[eid]['updated'] = op['entity'].get('updated', op.get('timestamp', ''))
+                    elif op.get('op') == 'relate':
+                        relations.append(op)
+                except json.JSONDecodeError:
+                    continue
     finally:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
         lock_f.close()
 
     if total_ops == len(entities) + len(relations):
@@ -694,25 +726,22 @@ def load_all_relations() -> List[Dict]:
         return relations
 
     lock_file = GRAPH_FILE.with_suffix('.lock')
-    lock_f = open(lock_file, 'a')
+    lock_f = _acquire_lock_with_timeout(lock_file, fcntl.LOCK_SH)
     try:
-        fcntl.flock(lock_f.fileno(), fcntl.LOCK_SH)
-        try:
-            with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
+        with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
 
-                    try:
-                        operation = json.loads(line)
-                        if operation['op'] == 'relate':
-                            relations.append(operation)
-                    except json.JSONDecodeError:
-                        continue
-        finally:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+                try:
+                    operation = json.loads(line)
+                    if operation['op'] == 'relate':
+                        relations.append(operation)
+                except json.JSONDecodeError:
+                    continue
     finally:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
         lock_f.close()
 
     return relations
