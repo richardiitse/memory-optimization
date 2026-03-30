@@ -50,7 +50,7 @@ SkillCard is a high-value knowledge card distilled from entities (Decision, Less
 1. **Quick Recall** - View key decisions without browsing all records
 2. **Low Decay** - decay_rate=0.99 preserves core knowledge long-term
 3. **High Confidence** - confidence=0.9 marks trusted knowledge
-4. **Knowledge Sharing** - Can publish to EvoMap marketplace
+4. **Knowledge Sharing** - Can generate skills for ClawHub marketplace
 
 ### Example
 
