@@ -57,6 +57,8 @@ SkillCard is a high-value knowledge card distilled from entities (Decision, Less
 - Multiple "three-layer architecture" Decisions merged into one SkillCard
 - decay_rate=0.99 ensures core knowledge is retained long-term
 
+**Simply put**: Distill scattered findings into "one card" — this is the core output of memory optimization.
+
 ## Phase Build Status
 
 | Phase | Feature | Status |
