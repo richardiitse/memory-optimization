@@ -214,6 +214,26 @@ types:
         type: array
         description: "学习资源列表"
 
+  SkillUsage:
+    required: [skill_name, status]
+    properties:
+      skill_name:
+        type: string
+        description: "技能名称"
+      category:
+        type: string
+        description: "技能分类 (feishu/apple/coding/memory/api/system/utility)"
+      status:
+        type: string
+        enum: ["success", "failed", "partial"]
+        description: "调用状态"
+      duration_seconds:
+        type: number
+        description: "耗时（秒）"
+      error:
+        type: string
+        description: "错误信息"
+
   LearningResource:
     required: [title, resource_type, url]
     properties:
