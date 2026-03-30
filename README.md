@@ -30,6 +30,33 @@ On day three of a repeating task, the agent **automatically executes using the a
 **Memory Decay**: strength decays over time, preventing low-value memories from consuming space.
 **Poisoning Protection**: provenance tracks sources; Consolidation validates conflicts before merging.
 
+## SkillCard - Knowledge Distillation
+
+SkillCard 是从实体（Decision/LessonLearned 等）压缩提炼的高价值知识卡片：
+
+```json
+{
+  "title": "采用实时、批量、心跳三层混合架构",
+  "confidence": 0.9,
+  "strength": 1.0,
+  "decay_rate": 0.99,
+  "source_episodes": ["dec_xxx", "dec_yyy"],
+  "provenance": ["consolidation:engine"]
+}
+```
+
+### 用途
+
+1. **快速回忆** - 不用遍历原始记录，直接查看关键决策
+2. **低衰减率** - decay_rate=0.99（几乎不衰减），长期保留核心知识
+3. **高置信度** - confidence=0.9，标记为可信知识
+4. **知识传承** - 可提交到 EvoMap 市场共享
+
+### 示例
+
+- 从多个"采用三层架构"相关 Decision 合并成一个 SkillCard
+- decay_rate=0.99 确保核心知识长期保留
+
 ## Phase Build Status
 
 | Phase | Feature | Status |
