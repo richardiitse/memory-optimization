@@ -31,6 +31,7 @@ Quickly implement a comprehensive memory management system for AI agents based o
 6. **Rolling Summary Template** - Concise daily summaries
 7. **Testing Framework** - 6 automated tests
 8. **Knowledge Graph** - 18 entities, 15 relationships
+9. **Skill Usage Tracker** - Track and analyze skill usage patterns
 
 ## Quick Start
 
@@ -150,6 +151,27 @@ memory/
 scripts/
 └── memory_ontology.py
 ```
+
+### Skill Usage Tracker
+
+Track and analyze skill usage patterns via Knowledge Graph:
+
+```bash
+# Record a skill usage
+python3 scripts/skill_tracker.py record --skill coding-agent --status success --duration 2.5
+
+# View usage statistics
+python3 scripts/skill_tracker.py stats
+
+# Scan session history and save to KG
+python3 scripts/skill_tracker.py scan --save
+```
+
+**Features:**
+- Record skill invocations with status, duration, and error info
+- Automatic skill categorization (feishu/apple/coding/memory/api/system/utility)
+- Session history scanning for automatic usage detection
+- KG-backed storage with fallback to file
 
 ## Usage Examples
 
