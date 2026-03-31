@@ -40,17 +40,17 @@ Quickly implement a comprehensive memory management system for AI agents based o
 Add to each daily log (memory/YYYY-MM-DD.md):
 
 ```markdown
-## ⚡ TL;DR 摘要
+## ⚡ TL;DR Summary
 
-**核心成就**：
+**Core Achievements**:
 - ✅ Achievement 1
 - ✅ Achievement 2
 
-**今日关键**：
+**Today's Key Points**:
 - Key point 1
 - Key point 2
 
-**决策**：Important decision made today
+**Decisions**: Important decision made today
 ```
 
 ### Three-File Pattern
@@ -178,19 +178,19 @@ python3 scripts/skill_tracker.py scan --save
 ### Create New Daily Log with TL;DR
 
 ```markdown
-# 心炙日记忆 - 2026-03-13
+# Daily Memory - 2026-03-13
 
-## ⚡ TL;DR 摘要
+## ⚡ TL;DR Summary
 
-**核心成就**：
+**Core Achievements**:
 - ✅ Completed task 1
 - ✅ Completed task 2
 
-**今日关键**：
+**Today's Key Points**:
 - Working on project X
 - Found solution Y
 
-**决策**：Chose approach Z
+**Decisions**: Chose approach Z
 ```
 
 ### Use Knowledge Graph
@@ -209,20 +209,20 @@ python3 scripts/memory_ontology.py related --id dec_xxx
 ## Environment Variables
 
 ```bash
-# GLM API 配置 (用于 kg_extractor.py)
+# GLM API configuration (used by kg_extractor.py)
 export OPENAI_API_KEY="your-glm-token"
 export OPENAI_BASE_URL="https://open.bigmodel.cn/api/paas/v4"
 export OPENAI_MODEL="glm-5"
 
-# 全局 KG 路径 (可选，默认使用 ~/.openclaw/workspace/memory/ontology)
-# 使用 KG_DIR 环境变量配置
+# Global KG path (optional, defaults to ~/.openclaw/workspace/memory/ontology)
+# Configure via KG_DIR environment variable
 ```
 
-## OpenClaw 技能调用配置
+## OpenClaw Skill Invocation
 
-当用户输入 `/xmo` 时，OpenClaw 会自动调用此 memory-optimization 技能。
+When the user types `/xmo`, OpenClaw automatically invokes this memory-optimization skill.
 
-在 OpenClaw 的 `settings.json` 或 `skills.json` 中添加以下配置：
+Add the following to OpenClaw's `settings.json` or `skills.json`:
 
 ```json
 {
@@ -235,7 +235,7 @@ export OPENAI_MODEL="glm-5"
 }
 ```
 
-配置后，用户输入 `/xmo` 即可激活此技能。
+After configuration, the user can activate this skill by typing `/xmo`.
 
 ## Next Steps
 
