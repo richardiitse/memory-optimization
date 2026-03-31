@@ -30,6 +30,35 @@ On day three of a repeating task, the agent **automatically executes using the a
 **Memory Decay**: strength decays over time, preventing low-value memories from consuming space.
 **Poisoning Protection**: provenance tracks sources; Consolidation validates conflicts before merging.
 
+## SkillCard - Knowledge Distillation
+
+SkillCard is a high-value knowledge card distilled from entities (Decision, LessonLearned, etc.):
+
+```json
+{
+  "title": "Adopt three-layer hybrid architecture (realtime/batch/heartbeat)",
+  "confidence": 0.9,
+  "strength": 1.0,
+  "decay_rate": 0.99,
+  "source_episodes": ["dec_xxx", "dec_yyy"],
+  "provenance": ["consolidation:engine"]
+}
+```
+
+### Purpose
+
+1. **Quick Recall** - View key decisions without browsing all records
+2. **Low Decay** - decay_rate=0.99 preserves core knowledge long-term
+3. **High Confidence** - confidence=0.9 marks trusted knowledge
+4. **Knowledge Sharing** - Can publish to EvoMap marketplace
+
+### Example
+
+- Multiple "three-layer architecture" Decisions merged into one SkillCard
+- decay_rate=0.99 ensures core knowledge is retained long-term
+
+**Simply put**: Distill scattered findings into "one card" — this is the core output of memory optimization.
+
 ## Phase Build Status
 
 | Phase | Feature | Status |
