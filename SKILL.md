@@ -95,6 +95,7 @@ See [scripts/README.md](scripts/README.md) for detailed usage:
 - `daily-cleanup.sh` - 3-minute daily memory maintenance
 - `test-memory-system.sh` - Verify all improvements working
 - `memory_ontology.py` - Knowledge Graph management tool
+- `kg_type_fixer.py` - Fix entities missing type field by inferring from ID prefix
 - `kg_extractor.py` - KG extraction from agent sessions (LLM-driven)
 - `preference_engine.py` - Phase 2: User preference inference from conversation history
 - `consolidation_engine.py` - Phase 3: consolidate similar episodes into SkillCards
