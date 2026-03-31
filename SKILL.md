@@ -1,6 +1,6 @@
 ---
 name: memory-optimization
-version: 1.0.2
+version: 1.0.3
 license: MIT
 description: |
   Comprehensive memory management optimization for AI agents. Use when: (1) Agent experiences context compression amnesia, (2) Need to rebuild context quickly after session restart, (3) Want structured memory system with TL;DR summaries, (4) Need automated daily memory maintenance, (5) Want to implement knowledge graph for entity management, or (6) Building agent memory system from scratch.
