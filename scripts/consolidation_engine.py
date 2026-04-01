@@ -182,6 +182,13 @@ class BlockingIndex:
                 self._consolidated_ids.add(entity_id)
                 continue
 
+            # Phase 8: 过滤掉显著性过低的实体
+            # significance_score < 0.3 的实体不参与 consolidation
+            sig_score = props.get('significance_score', 0.5)  # 默认 0.5 向后兼容
+            if sig_score < 0.3:
+                self._consolidated_ids.add(entity_id)
+                continue
+
             self._entity_ids.add(entity_id)
 
             # Level 1: 按 type 索引

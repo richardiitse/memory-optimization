@@ -169,6 +169,18 @@ class DecayEngine:
                 stats['skipped_already_archived'] += 1
                 continue
 
+            # Phase 8: 高显著性实体衰减更慢
+            # 有效阈值 = DECAY_THRESHOLD + (0.3 - significance) * 0.1
+            # 高显著性 (0.8) -> threshold = 0.13
+            # 低显著性 (0.3) -> threshold = 0.07
+            significance = props.get('significance_score', 0.5)
+            effective_threshold = DECAY_THRESHOLD + (0.3 - significance) * 0.1
+            current_strength = props.get('strength', 1.0)
+
+            # 如果当前强度仍高于有效阈值，跳过
+            if current_strength >= effective_threshold:
+                continue
+
             if not dry_run:
                 try:
                     _archive_entity(entity_id)
