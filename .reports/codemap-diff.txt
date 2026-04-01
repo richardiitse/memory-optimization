@@ -1,0 +1,40 @@
+# Codemap Diff Report
+Generated: 2026-04-02
+
+## Summary
+- **Action:** Initial codemap generation (no previous codemaps existed)
+- **Files added:** 4 codemap files (317 lines)
+
+## Codemaps Created
+
+| File | Lines | Contents |
+|------|-------|----------|
+| architecture.md | 102 | System overview, component diagram, data flow |
+| data.md | 75 | Entity types, schema, graph operations |
+| dependencies.md | 62 | External APIs, Python packages, environment variables |
+| scripts.md | 78 | CLI tools, entry points, test commands |
+
+## Architecture Insights
+
+### Component Structure
+- 12 Python scripts in scripts/
+- 1 shared utility module (utils/llm_client.py)
+- JSON Lines graph storage (graph.jsonl)
+- YAML schema definitions (memory-schema.yaml)
+
+### External Dependencies
+- GLM API (BigModel) for LLM completions
+- Ollama for local embeddings
+- Standard library only (fcntl for file locking)
+
+### Phase Status
+- 8 phases implemented (Phase 1-3, 5-8)
+- 2 future phases pending (Concept-Mediated Graph, Value-Aware Retrieval)
+
+## Staleness Warnings
+None - this is initial generation.
+
+## Notes
+- No existing codemaps to diff against
+- All codemaps under 1000 tokens target
+- ASCII diagrams used for visual clarity
