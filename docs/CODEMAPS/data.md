@@ -35,6 +35,21 @@
 | GatingPolicy | `gate_` | threshold(0.5), auto_archive_below(0.3), weights |
 | ArchivedMemory | `arch_` | original_id, archived_reason, cold_storage_path |
 
+### Phase 4: Concept Entities
+
+| Type | Prefix | Key Fields |
+|------|--------|------------|
+| Concept | `concept_` | name, description, related_concepts, instance_count |
+
+## Concept Relations
+
+| Relation | Description |
+|----------|-------------|
+| `is_a` | Hierarchical (parent-child) |
+| `part_of` | Part-whole relationship |
+| `synonym_of` | Equivalent concepts |
+| `instance_of` | Entity to concept link |
+
 ## Common Fields (all entities)
 
 ```yaml
