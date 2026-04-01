@@ -472,11 +472,39 @@ class EntityExtractor:
                     print(f"  Warning: Validation failed for {item.get('title')}: {errors}")
                     continue
 
+                # Phase 8: 写入时门控检查
+                gate_result = None
+                try:
+                    from write_time_gating import WriteTimeGating
+                    gating = WriteTimeGating()
+                    # 构建待评估实体
+                    entity_for_gating = {
+                        'type': entity_type,
+                        'properties': props.copy()
+                    }
+                    gate_result = gating.gate(entity_for_gating, 'kg_extractor')
+
+                    if gate_result.status == "REJECT":
+                        print(f"  ⊘ Rejected by gating (score={gate_result.score.total_score:.3f})")
+                        continue
+
+                    if gate_result.status == "ARCHIVE":
+                        print(f"  ⇢ Archived (score={gate_result.score.total_score:.3f})")
+                        props['is_archived'] = True
+
+                    # 将显著性评分添加到属性
+                    props['significance_score'] = gate_result.score.total_score
+
+                except Exception as gate_error:
+                    print(f"  Warning: Gating check failed: {gate_error}")
+                    # 门控失败时默认允许通过（不阻止实体创建）
+
                 # 写入 KG（如果不是 dry-run）
                 if not dry_run:
                     try:
                         entity = self._create_entity(entity_type, props)
-                        print(f"  ✓ Created {entity_type}: {props['title']}")
+                        score_str = f" (sig={gate_result.score.total_score:.2f})" if gate_result else ""
+                        print(f"  ✓ Created {entity_type}: {props['title']}{score_str}")
                     except Exception as e:
                         print(f"  ✗ Failed to create entity: {e}")
                         continue

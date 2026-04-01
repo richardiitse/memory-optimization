@@ -333,7 +333,162 @@ types:
         default: "medium"
         description: "来源信任度"
 
-  # ========== Phase 3: Consolidation Engine ==========
+  # ========== Phase 8: Write-Time Gating (AEAM) ==========
+# 基于 Selective Memory 论文的写入时门控机制
+# 参考: https://arxiv.org/abs/2603.15994
+
+  SignificanceScore:
+    required: [entity_id, total_score, breakdown, model, created_at]
+    properties:
+      entity_id:
+        type: string
+        description: "被评分的实体 ID"
+      total_score:
+        type: number
+        description: "综合显著性评分 0.0-1.0"
+      breakdown:
+        type: object
+        description: "三元评分明细"
+        properties:
+          source_reputation:
+            type: number
+            description: "来源声誉 0.0-1.0 (权重 40%)"
+          novelty:
+            type: number
+            description: "新颖性 0.0-1.0 (权重 35%)"
+          reliability:
+            type: number
+            description: "可靠性 0.0-1.0 (权重 25%)"
+      weights_used:
+        type: object
+        description: "计算时使用的权重配置"
+        properties:
+          source_reputation:
+            type: number
+            default: 0.40
+          novelty:
+            type: number
+            default: 0.35
+          reliability:
+            type: number
+            default: 0.25
+      model:
+        type: string
+        description: "评分使用的 LLM 模型"
+      created_at:
+        type: string
+        description: "评分时间 (ISO 8601)"
+      tags:
+        type: array
+        description: "标签列表"
+
+  MemorySource:
+    required: [id, source_type, reliability, use_count, last_used]
+    properties:
+      source_type:
+        type: string
+        enum: [user_input, agent_reflection, external_knowledge, task_result, kg_extractor, consolidation_engine, preference_engine, decay_engine]
+        description: "来源类型"
+      reliability:
+        type: number
+        default: 0.5
+        description: "历史准确率 0.0-1.0"
+      use_count:
+        type: number
+        default: 0
+        description: "使用次数"
+      last_used:
+        type: string
+        description: "最后使用时间 (ISO 8601)"
+      accuracy_history:
+        type: array
+        description: "历史准确率记录 [{timestamp, correct}]"
+      avg_accuracy:
+        type: number
+        default: 0.5
+        description: "近期平均准确率"
+      tags:
+        type: array
+        description: "标签列表"
+
+  GatingPolicy:
+    required: [id, threshold, auto_archive_below, enabled, updated_at]
+    properties:
+      id:
+        type: string
+        description: "策略 ID (如 gate_default)"
+      threshold:
+        type: number
+        default: 0.5
+        description: "显著性阈值，>=此值 STORE"
+      auto_archive_below:
+        type: number
+        default: 0.3
+        description: "低于此值 REJECT，之间 ARCHIVE"
+      weights:
+        type: object
+        description: "三元评分权重配置"
+        properties:
+          source_reputation:
+            type: number
+            default: 0.40
+          novelty:
+            type: number
+            default: 0.35
+          reliability:
+            type: number
+            default: 0.25
+      enabled:
+        type: boolean
+        default: true
+        description: "是否启用门控"
+      updated_at:
+        type: string
+        description: "更新时间 (ISO 8601)"
+      description:
+        type: string
+        description: "策略描述"
+      tags:
+        type: array
+        description: "标签列表"
+
+  ArchivedMemory:
+    required: [id, original_id, archived_reason, archived_at, cold_storage_path]
+    properties:
+      original_id:
+        type: string
+        description: "原始实体 ID"
+      archived_reason:
+        type: string
+        enum: [below_threshold, superseded, decay, manual]
+        description: "归档原因"
+      archived_at:
+        type: string
+        description: "归档时间 (ISO 8601)"
+      cold_storage_path:
+        type: string
+        description: "冷存储文件路径"
+      original_entity:
+        type: object
+        description: "原始实体完整数据 (用于恢复)"
+      significance_score_at_archive:
+        type: number
+        description: "归档时的显著性评分"
+      strength_at_archive:
+        type: number
+        description: "归档时的记忆强度"
+      access_count:
+        type: number
+        default: 0
+        description: "归档后访问次数"
+      last_accessed:
+        type: string
+        description: "最后访问时间 (ISO 8601)"
+      tags:
+        type: array
+        description: "标签列表"
+
+# ========== Phase 3: Consolidation Engine ==========
 
   SkillCard:
     required: [title, summary, source_episodes, consolidated_at]
@@ -689,6 +844,22 @@ common_memory_fields:
     enum: ["high", "medium", "low"]
     default: "medium"
     description: "来源信任度，基于观察次数和来源可靠性"
+  # ========== Phase 8: Write-Time Gating 公共字段 ==========
+  significance_score:
+    type: number
+    default: 0.5
+    description: "显著性评分 0.0-1.0，Write-Time Gating 使用，>=0.5 STORE，0.3-0.5 ARCHIVE，<0.3 REJECT"
+  source_id:
+    type: string
+    description: "MemorySource ID 引用，记录实体来源"
+  is_archived:
+    type: boolean
+    default: false
+    description: "是否已归档到冷存储"
+  superseded_by:
+    type: string
+    nullable: true
+    description: "被谁替代 (版本链支持)"
 
 # Decay rates by entity type
 decay_rates:

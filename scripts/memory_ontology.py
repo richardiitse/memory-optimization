@@ -182,7 +182,13 @@ def generate_entity_id(entity_type: str) -> str:
         'Skill': 'skil',
         'Event': 'event',
         'SkillCard': 'skc',
-        'ConflictReview': 'conf'
+        'ConflictReview': 'conf',
+        'Preference': 'pref',
+        # Phase 8: Write-Time Gating
+        'SignificanceScore': 'sig',
+        'MemorySource': 'src',
+        'GatingPolicy': 'gate',
+        'ArchivedMemory': 'arch'
     }
     
     prefix = prefix_map.get(entity_type, 'ent')
@@ -955,6 +961,329 @@ def export_to_markdown(output_file: Optional[Path] = None):
     print(f"✓ 导出完成：{output_file}")
 
 
+# ========== Phase 8: Write-Time Gating Support ==========
+
+def get_or_create_source(source_type: str) -> Optional[Dict]:
+    """获取或创建 MemorySource 实体
+
+    Args:
+        source_type: 来源类型 (如 'kg_extractor', 'user_input')
+
+    Returns:
+        MemorySource 实体，如果失败返回 None
+    """
+    entities = load_all_entities()
+
+    # 查找已存在的来源
+    for entity in entities.values():
+        if entity['type'] == 'MemorySource' and entity['properties'].get('source_type') == source_type:
+            return entity
+
+    # 创建新来源
+    now = datetime.now().astimezone().isoformat()
+    source_props = {
+        'source_type': source_type,
+        'reliability': 0.5,  # 默认值
+        'use_count': 0,
+        'last_used': now,
+        'accuracy_history': [],
+        'avg_accuracy': 0.5,
+        'tags': ['#memory-source', f'#{source_type}']
+    }
+
+    try:
+        return create_entity('MemorySource', source_props)
+    except Exception as e:
+        print(f"Warning: Failed to create MemorySource: {e}")
+        return None
+
+
+def update_source_reliability(source_id: str, correct: bool) -> bool:
+    """根据准确率反馈更新来源可靠性
+
+    使用指数移动平均更新可靠性，结合历史准确率。
+
+    Args:
+        source_id: MemorySource 实体 ID
+        correct: 本次是否正确
+
+    Returns:
+        成功返回 True
+    """
+    source = get_entity(source_id, refresh_strength=False)
+    if not source or source['type'] != 'MemorySource':
+        return False
+
+    props = source['properties']
+    history = props.get('accuracy_history', [])
+
+    # 添加新记录
+    now = datetime.now().astimezone().isoformat()
+    history.append({'timestamp': now, 'correct': correct})
+
+    # 保留最近 20 条记录
+    history = history[-20:]
+
+    # 计算平均准确率
+    if history:
+        accuracy = sum(1 for h in history if h['correct']) / len(history)
+        props['avg_accuracy'] = accuracy
+        # 可靠性 = 指数移动平均
+        old_reliability = props.get('reliability', 0.5)
+        props['reliability'] = 0.7 * old_reliability + 0.3 * accuracy
+
+    props['accuracy_history'] = history
+    props['use_count'] = props.get('use_count', 0) + 1
+    props['last_used'] = now
+
+    # 更新实体
+    update_op = {
+        "op": "update",
+        "entity": {"id": source_id, "properties": props, "updated": now},
+        "timestamp": now
+    }
+    _write_to_graph(json.dumps(update_op, ensure_ascii=False) + '\n')
+
+    return True
+
+
+def get_default_gating_policy(policy_id: str = 'gate_default') -> Optional[Dict]:
+    """获取或创建默认门控策略
+
+    Args:
+        policy_id: 策略 ID，默认 'gate_default'
+
+    Returns:
+        GatingPolicy 实体
+    """
+    entities = load_all_entities()
+
+    # 查找已存在的策略
+    for entity in entities.values():
+        if entity['type'] == 'GatingPolicy' and entity['id'] == policy_id:
+            return entity
+
+    # 创建默认策略
+    now = datetime.now().astimezone().isoformat()
+    policy_props = {
+        'id': policy_id,
+        'threshold': 0.5,  # >= 0.5 STORE
+        'auto_archive_below': 0.3,  # < 0.3 REJECT, 之间 ARCHIVE
+        'weights': {
+            'source_reputation': 0.40,
+            'novelty': 0.35,
+            'reliability': 0.25
+        },
+        'enabled': True,
+        'updated_at': now,
+        'description': 'Default gating policy based on Selective Memory paper',
+        'tags': ['#gating-policy', '#aeam']
+    }
+
+    try:
+        return create_entity('GatingPolicy', policy_props, entity_id=policy_id)
+    except Exception as e:
+        print(f"Warning: Failed to create GatingPolicy: {e}")
+        return None
+
+
+def get_all_active_entities() -> List[Dict]:
+    """获取所有活跃（非归档、非合并）实体
+
+    Returns:
+        活跃实体列表
+    """
+    entities = load_all_entities()
+    active = []
+
+    for entity in entities.values():
+        props = entity.get('properties', {})
+
+        # 跳过已归档的
+        if props.get('is_archived'):
+            continue
+
+        # 跳过已合并的
+        if props.get('consolidated_into'):
+            continue
+        if props.get('merged_into'):
+            continue
+
+        active.append(entity)
+
+    return active
+
+
+def get_all_archived_entities() -> List[Dict]:
+    """获取所有归档实体
+
+    Returns:
+        ArchivedMemory 实体列表
+    """
+    return get_entities_by_type('ArchivedMemory')
+
+
+def archive_entity_to_cold_storage(entity_id: str, reason: str,
+                                  significance_score: float = 0.5,
+                                  strength: float = 1.0) -> Optional[str]:
+    """将实体归档到冷存储
+
+    Args:
+        entity_id: 要归档的实体 ID
+        reason: 归档原因 (below_threshold, superseded, decay, manual)
+        significance_score: 归档时的显著性评分
+        strength: 归档时的记忆强度
+
+    Returns:
+        冷存储文件路径，失败返回 None
+    """
+    entity = get_entity(entity_id, refresh_strength=False)
+    if not entity:
+        return None
+
+    now = datetime.now().astimezone().isoformat()
+
+    # 创建冷存储目录
+    cold_dir = ONTOLOGY_DIR / "cold-storage"
+    cold_dir.mkdir(parents=True, exist_ok=True)
+
+    cold_file = cold_dir / f"{entity_id}.json"
+
+    # 写入冷存储文件
+    with open(cold_file, 'w', encoding='utf-8') as f:
+        json.dump({
+            'archived_at': now,
+            'archived_reason': reason,
+            'original_entity': entity,
+            'significance_score_at_archive': significance_score,
+            'strength_at_archive': strength
+        }, f, ensure_ascii=False, indent=2)
+
+    # 创建 ArchivedMemory 引用实体
+    archived_props = {
+        'original_id': entity_id,
+        'archived_reason': reason,
+        'archived_at': now,
+        'cold_storage_path': str(cold_file),
+        'original_entity': entity,  # 冗余存储以支持快速恢复
+        'significance_score_at_archive': significance_score,
+        'strength_at_archive': strength,
+        'access_count': 0,
+        'last_accessed': None,
+        'tags': ['#archived', f'#{reason}']
+    }
+
+    try:
+        create_entity('ArchivedMemory', archived_props)
+    except Exception as e:
+        print(f"Warning: Failed to create ArchivedMemory entity: {e}")
+
+    # 标记原始实体为已归档
+    update_op = {
+        "op": "update",
+        "entity": {
+            "id": entity_id,
+            "properties": {
+                'is_archived': True,
+                'archived_at': now,
+                'archived_reason': reason,
+                'cold_storage_path': str(cold_file)
+            },
+            "updated": now
+        },
+        "timestamp": now
+    }
+    _write_to_graph(json.dumps(update_op, ensure_ascii=False) + '\n')
+
+    return str(cold_file)
+
+
+def recover_entity_from_cold_storage(archived_memory_id: str) -> Optional[Dict]:
+    """从冷存储恢复实体到活跃 KG
+
+    Args:
+        archived_memory_id: ArchivedMemory 实体 ID
+
+    Returns:
+        恢复后的实体，失败返回 None
+    """
+    archived = get_entity(archived_memory_id, refresh_strength=False)
+    if not archived or archived['type'] != 'ArchivedMemory':
+        return None
+
+    props = archived['properties']
+    original_id = props['original_id']
+    cold_path = props.get('cold_storage_path')
+
+    # 从冷存储文件读取
+    if cold_path and Path(cold_path).exists():
+        with open(cold_path, 'r', encoding='utf-8') as f:
+            cold_data = json.load(f)
+            original_entity = cold_data.get('original_entity')
+    else:
+        original_entity = props.get('original_entity')
+
+    if not original_entity:
+        return None
+
+    # 恢复实体：创建新版本（带 supersession 链接）
+    now = datetime.now().astimezone().isoformat()
+
+    # 标记旧实体已被 supersession
+    update_op = {
+        "op": "update",
+        "entity": {
+            "id": original_id,
+            "properties": {
+                'is_archived': False,  # 恢复活跃状态
+                'superseded_by': None,  # 清除替代关系
+                'recovered_from_archive': now
+            },
+            "updated": now
+        },
+        "timestamp": now
+    }
+    _write_to_graph(json.dumps(update_op, ensure_ascii=False) + '\n')
+
+    # 增加归档实体的访问计数
+    archived_props = archived['properties']
+    archived_props['access_count'] = archived_props.get('access_count', 0) + 1
+    archived_props['last_accessed'] = now
+
+    update_archived_op = {
+        "op": "update",
+        "entity": {
+            "id": archived_memory_id,
+            "properties": archived_props,
+            "updated": now
+        },
+        "timestamp": now
+    }
+    _write_to_graph(json.dumps(update_archived_op, ensure_ascii=False) + '\n')
+
+    return original_entity
+
+
+def list_cold_storage_entities(reason: Optional[str] = None) -> List[Dict]:
+    """列出冷存储中的实体
+
+    Args:
+        reason: 可选，按归档原因过滤
+
+    Returns:
+        ArchivedMemory 实体列表
+    """
+    all_archived = get_all_archived_entities()
+
+    if reason:
+        return [a for a in all_archived if a['properties'].get('archived_reason') == reason]
+
+    return all_archived
+
+
+# ========== End Phase 8 ==========
+
+
 def print_entity(entity: Dict, verbose: bool = False):
     """打印实体"""
     props = entity['properties']
@@ -1073,6 +1402,17 @@ def main():
 
     # compact 命令
     compact_parser = subparsers.add_parser('compact', help='压缩 graph.jsonl，保留每个实体的最新版本')
+
+    # gate 命令 (Phase 8: Write-Time Gating)
+    gate_parser = subparsers.add_parser('gate', help='评估实体的显著性评分 (Write-Time Gating)')
+    gate_parser.add_argument('--id', required=True, help='实体 ID')
+    gate_parser.add_argument('--source', default='user_input', help='来源类型')
+
+    # archived 命令 (Phase 8: 归档实体管理)
+    archived_parser = subparsers.add_parser('archived', help='管理归档实体')
+    archived_parser.add_argument('--list', dest='list_archived', action='store_true', help='列出归档实体')
+    archived_parser.add_argument('--reason', help='按归档原因过滤')
+    archived_parser.add_argument('--limit', type=int, help='返回数量限制')
 
     args = parser.parse_args()
     
@@ -1201,6 +1541,42 @@ def main():
             print(f"✓ 图谱已是最优状态，无需压缩 ({kept} 个实体)")
         else:
             print(f"✓ 图谱压缩完成: {total} → {compacted} 行 (保留 {kept} 个实体最新版本)")
+
+    elif args.command == 'gate':
+        # Phase 8: Write-Time Gating 评估
+        from write_time_gating import WriteTimeGating
+        gating = WriteTimeGating()
+        entity = get_entity(args.id, refresh_strength=False)
+        if not entity:
+            print(f"✗ Entity not found: {args.id}", file=sys.stderr)
+            sys.exit(1)
+        source_type = getattr(args, 'source', 'user_input')
+        result = gating.gate(entity, source_type)
+        print(f"\n{'='*50}")
+        print(f"Gate Result: {result.status}")
+        print(f"Reason: {result.reason}")
+        print(f"{'='*50}")
+        print(f"Total Score: {result.score.total_score:.3f}")
+        print(f"Breakdown:")
+        print(f"  Source Reputation: {result.score.breakdown.source_reputation:.3f}")
+        print(f"  Novelty:          {result.score.breakdown.novelty:.3f}")
+        print(f"  Reliability:      {result.score.breakdown.reliability:.3f}")
+
+    elif args.command == 'archived':
+        # Phase 8: 归档实体管理
+        from archived_memory_store import ArchivedMemoryStore
+        store = ArchivedMemoryStore()
+        if args.list_archived:
+            archived = store.list_archived(reason=args.reason, limit=args.limit)
+            print(f"\n{'='*50}")
+            print(f"Archived Entities: {len(archived)}")
+            print(f"{'='*50}")
+            for a in archived:
+                props = a['properties']
+                print(f"\n{a['id']}")
+                print(f"  Original: {props.get('original_id')}")
+                print(f"  Reason: {props.get('archived_reason')}")
+                print(f"  Archived: {props.get('archived_at')}")
 
     else:
         parser.print_help()
