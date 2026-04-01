@@ -84,6 +84,7 @@ DECAY_RATES = {
     'Task': 0.80,
     'Project': 0.90,
     'Preference': 0.90,  # Phase 2
+    'Concept': 0.95,  # Phase 4: Concepts decay slowly
     # 默认值
     'default': 0.90
 }
@@ -188,7 +189,9 @@ def generate_entity_id(entity_type: str) -> str:
         'SignificanceScore': 'sig',
         'MemorySource': 'src',
         'GatingPolicy': 'gate',
-        'ArchivedMemory': 'arch'
+        'ArchivedMemory': 'arch',
+        # Phase 4: Concept-Mediated Graph
+        'Concept': 'concept'
     }
     
     prefix = prefix_map.get(entity_type, 'ent')
