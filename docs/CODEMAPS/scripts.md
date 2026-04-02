@@ -15,6 +15,9 @@
 | memory_dashboard.py | Show health stats | `python3 memory_dashboard.py` |
 | write_time_gating.py | Gate evaluation | `python3 write_time_gating.py gate --entity-id X` |
 | archived_memory_store.py | Cold storage mgmt | `python3 archived_memory_store.py list` |
+| concept_extractor.py | Extract concepts from entities | `python3 concept_extractor.py extract --dry-run` |
+| concept_hierarchy.py | Concept hierarchy ops | `python3 concept_hierarchy.py subconcepts <id>` |
+| concept_mediated_graph.py | Concept-based queries | `python3 concept_mediated_graph.py query --concept xxx` |
 
 ## memory_ontology.py Subcommands
 

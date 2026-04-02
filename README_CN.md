@@ -139,6 +139,28 @@ python3 scripts/memory_dashboard.py json        # JSON 输出
 
 **Active Recovery**: Stage 1 启动时加载 (核心身份) → Stage 2/3 按需加载
 
+## 多 Agent KG 共享
+
+多 agent 场景下 (main, altas, scribe, tutor)，可共享单一知识图谱：
+
+```bash
+# 创建共享目录
+mkdir -p ~/.openclaw/shared-kg
+
+# 链接主 KG
+ln -sf ~/.openclaw/workspace/memory/ontology/graph.jsonl ~/.openclaw/shared-kg/main-kg.jsonl
+```
+
+各 agent 的 `TOOLS.md` 应引用：
+```markdown
+## Knowledge Graph (KG)
+
+- **共享 KG**: ~/.openclaw/shared-kg/main-kg.jsonl
+- 包含所有重要的长期记忆、决策、经验教训
+```
+
+脚本使用: `KG_DIR=~/.openclaw/shared-kg/ python3 scripts/memory_ontology.py query --tags "#decision"`
+
 ## File Structure
 
 ```

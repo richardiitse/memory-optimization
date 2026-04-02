@@ -95,8 +95,30 @@ graph.jsonl (KG)
 | Phase 5 | Working Memory | ✅ Done |
 | Phase 6 | Memory Loader | ✅ Done |
 | Phase 7 | Memory Dashboard | ✅ Done |
+| Phase 4 | Concept-Mediated Graph | ✅ Done |
 | Phase 8 | Write-Time Gating | ✅ Done |
-| Future | Concept-Mediated Graph | ⏳ |
 | Future | Value-Aware Retrieval | ⏳ |
 
-<!-- Generated: 2026-04-02 | Files scanned: 45 | Token estimate: ~600 -->
+## Phase 4: Concept-Mediated Graph
+
+```
+Entities + Relations
+       ↓ concept_extractor.py (LLM)
+    Concepts (concept_xxx)
+       ↓
+┌─────────────────────────────────────┐
+│  concept_mediated_graph.py          │
+│  • Query by concept (instance_of)    │
+│  • Transitive closure (subconcepts) │
+│  • Path finding via concepts        │
+└─────────────────────────────────────┘
+       ↓
+┌─────────────────────────────────────┐
+│  concept_hierarchy.py                │
+│  • is_a / part_of / synonym_of      │
+│  • Lowest Common Ancestor (LCA)     │
+│  • Hierarchy traversal               │
+└─────────────────────────────────────┘
+```
+
+<!-- Generated: 2026-04-02 (Updated: Phase 4) | Token estimate: ~650 -->
