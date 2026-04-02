@@ -20,6 +20,7 @@ from .entity_ops import (
 from .query import query_entities, validate_graph, export_to_markdown
 from .relation_ops import create_relation, get_related_entities
 from .storage import load_all_relations, compact_graph, ensure_ontology_dir
+from .retrieval import ValueAwareRetriever
 
 
 def print_entity(entity: Dict, verbose: bool = False):
@@ -149,6 +150,14 @@ def main():
     archived_parser.add_argument('--list', dest='list_archived', action='store_true', help='列出归档实体')
     archived_parser.add_argument('--reason', help='按归档原因过滤')
     archived_parser.add_argument('--limit', type=int, help='返回数量限制')
+
+    # retrieve 命令 (Phase 6: 价值感知检索)
+    retrieve_parser = subparsers.add_parser('retrieve', help='价值感知检索 (按价值分数排序)')
+    retrieve_parser.add_argument('--types', nargs='+', help='实体类型列表')
+    retrieve_parser.add_argument('--query', help='搜索查询文本')
+    retrieve_parser.add_argument('--min-score', type=float, default=0.3, help='最低价值分数 (默认 0.3)')
+    retrieve_parser.add_argument('--limit', type=int, default=20, help='返回数量限制 (默认 20)')
+    retrieve_parser.add_argument('--show-scores', action='store_true', help='显示价值分数')
 
     args = parser.parse_args()
 
@@ -313,6 +322,43 @@ def main():
                 print(f"  Original: {props.get('original_id')}")
                 print(f"  Reason: {props.get('archived_reason')}")
                 print(f"  Archived: {props.get('archived_at')}")
+
+    elif args.command == 'retrieve':
+        # Phase 6: 价值感知检索
+        retriever = ValueAwareRetriever()
+        if args.query:
+            results = retriever.retrieve_by_query(
+                query=args.query,
+                entity_types=args.types,
+                min_value_score=args.min_score,
+                limit=args.limit
+            )
+        else:
+            results = retriever.retrieve(
+                entity_types=args.types,
+                min_value_score=args.min_score,
+                limit=args.limit
+            )
+
+        print(f"\n{'='*60}")
+        print(f"Value-Aware Retrieval: {len(results)} results")
+        print(f"Min Score: {args.min_score}")
+        print(f"{'='*60}\n")
+
+        for entity in results:
+            props = entity.get('properties', {})
+            title = props.get('title') or props.get('name') or entity['id']
+            entity_type = entity.get('type', 'Unknown')
+            entity_id = entity.get('id', '')
+
+            if args.show_scores:
+                score = entity.get('value_score', 0)
+                print(f"[{entity_type}] {entity_id}")
+                print(f"  Title: {title}")
+                print(f"  Value Score: {score:.3f}")
+                print()
+            else:
+                print(f"[{entity_type}] {entity_id}: {title}")
 
     else:
         parser.print_help()

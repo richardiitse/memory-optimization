@@ -5,6 +5,7 @@ Provides knowledge graph management for agent memory with:
 - Entity CRUD operations with strength/decay tracking
 - Relation management
 - Schema validation
+- Phase 6 Value-Aware Retrieval
 - Phase 8 Write-Time Gating
 - Cold storage archiving
 
@@ -93,6 +94,19 @@ from .cli import (
     main,
 )
 
+# Re-export from value_score module (Phase 6)
+from .value_score import (
+    ValueScoreCalculator,
+    value_aware_sort,
+    DEFAULT_WEIGHTS,
+)
+
+# Re-export from retrieval module (Phase 6)
+from .retrieval import (
+    ValueAwareRetriever,
+    retrieve_value_aware,
+)
+
 __all__ = [
     # config
     'load_env_file',
@@ -149,4 +163,11 @@ __all__ = [
     # cli
     'print_entity',
     'main',
+    # value_score (Phase 6)
+    'ValueScoreCalculator',
+    'value_aware_sort',
+    'DEFAULT_WEIGHTS',
+    # retrieval (Phase 6)
+    'ValueAwareRetriever',
+    'retrieve_value_aware',
 ]
