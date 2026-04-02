@@ -39,4 +39,7 @@ def run(task: str, timeout: int = 120) -> tuple[float, str]:
             return duration, response
         return duration, result.stdout
     finally:
-        shutil.rmtree(workspace, onexc=lambda *_: None)
+        try:
+            shutil.rmtree(workspace)
+        except Exception:
+            pass
