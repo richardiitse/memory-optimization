@@ -658,3 +658,61 @@ class TestValueAwareLoading:
                 MockRetriever.assert_called_once()
                 call_kwargs = MockRetriever.call_args[1]
                 assert call_kwargs['preferences'] == mock_prefs
+
+    def test_load_stage1_value_kg_unavailable_graceful_degradation(self):
+        """Stage 1 value-aware handles KG unavailable gracefully."""
+        from memory_loader import MemoryLoader
+
+        with patch('memory_loader.load_all_entities', side_effect=OSError("KG unavailable")):
+            loader = MemoryLoader()
+            result = loader.load_stage1_value(min_value_score=0.3)
+
+        assert result['stage'] == 1
+        assert result.get('error') == 'KG unavailable'
+
+    def test_load_stage2_value_kg_unavailable_graceful_degradation(self):
+        """Stage 2 value-aware handles KG unavailable gracefully."""
+        from memory_loader import MemoryLoader
+
+        with patch('memory_loader.load_all_entities', side_effect=OSError("KG unavailable")):
+            loader = MemoryLoader()
+            result = loader.load_stage2_value(min_value_score=0.3)
+
+        assert result['stage'] == 2
+        assert result.get('error') == 'KG unavailable'
+
+    def test_load_stage3_value_kg_unavailable_graceful_degradation(self):
+        """Stage 3 value-aware handles KG unavailable gracefully."""
+        from memory_loader import MemoryLoader
+
+        with patch('memory_loader.load_all_entities', side_effect=OSError("KG unavailable")):
+            loader = MemoryLoader()
+            result = loader.load_stage3_value(min_value_score=0.3)
+
+        assert result['stage'] == 3
+        assert result.get('error') == 'KG unavailable'
+
+    def test_load_stage3_value_with_context_generates_hints(self):
+        """Stage 3 value-aware generates proactive hints when context provided."""
+        from memory_loader import MemoryLoader
+
+        mock_skill = make_entity('SkillCard', 'skill_1', {
+            'title': 'Moltbook Token',
+            'description': 'Expert in token access',
+        })
+
+        with patch('memory_loader.load_all_entities', return_value={}):
+            with patch('memory_loader.ValueAwareRetriever') as MockRetriever:
+                mock_retriever = MagicMock()
+                MockRetriever.return_value = mock_retriever
+                mock_retriever.retrieve.return_value = [mock_skill]
+
+                loader = MemoryLoader()
+                result = loader.load_stage3_value(
+                    min_value_score=0.3,
+                    context="I need to work with moltbook token access"
+                )
+
+        assert result['stage'] == 3
+        assert result.get('value_aware') is True
+        assert len(result.get('proactive_hints', [])) > 0

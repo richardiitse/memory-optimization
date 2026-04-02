@@ -457,6 +457,51 @@ class TestMergeCandidate:
         assert mc.canonical_id == 'e1'
 
 
+class TestGetEmbedding:
+    """Tests for _get_embedding edge cases."""
+
+    def test_get_embedding_cache_hit(self):
+        """When cache hit, returns cached embedding without calling client."""
+        mock_client = Mock()
+        mock_client.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        dedup = EntityDeduplicator(mock_client, threshold=0.85)
+
+        # Pre-populate cache
+        dedup.embed_cache.set("test text", [0.5, 0.5, 0.5])
+
+        result = dedup._get_embedding("test text")
+
+        assert result == [0.5, 0.5, 0.5]
+        mock_client.embed.assert_not_called()
+
+    def test_get_embedding_client_returns_none(self):
+        """When client returns None, propagates None without caching."""
+        mock_client = Mock()
+        mock_client.embed = Mock(return_value=None)
+
+        dedup = EntityDeduplicator(mock_client, threshold=0.85)
+
+        result = dedup._get_embedding("some text")
+
+        assert result is None
+        # Should not cache None result
+        assert dedup.embed_cache.get("some text") is None
+
+    def test_get_embedding_caches_on_success(self):
+        """When client returns embedding, caches it."""
+        mock_client = Mock()
+        mock_client.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        dedup = EntityDeduplicator(mock_client, threshold=0.85)
+
+        result = dedup._get_embedding("new text")
+
+        assert result == [0.1, 0.2, 0.3]
+        # Should be cached
+        assert dedup.embed_cache.get("new text") == [0.1, 0.2, 0.3]
+
+
 class TestEmbedCacheCorruption:
     """Tests for EmbedCache file corruption handling."""
 

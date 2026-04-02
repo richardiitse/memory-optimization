@@ -282,6 +282,58 @@ class TestCompressInvalidLevel:
 
         assert "Invalid compression level" in str(exc_info.value)
 
+    def test_compress_level1_direct(self):
+        """compress() with level=1 delegates to _compress_level1"""
+        from working_memory import WorkingMemoryEngine
+
+        engine = WorkingMemoryEngine()
+        content = "测试内容"
+
+        entry = engine.compress(content, "session_compress_1", level=1)
+
+        assert entry.compression_level == 1
+        assert entry.content["full_text"] == content
+
+    def test_compress_level2_direct(self):
+        """compress() with level=2 delegates to _compress_level2"""
+        from working_memory import WorkingMemoryEngine, WorkingMemoryEntry
+
+        engine = WorkingMemoryEngine()
+
+        with patch.object(engine, '_compress_level2', return_value=WorkingMemoryEntry(
+            id="wm_test123",
+            session_id="session_compress_2",
+            timestamp="2026-04-01T00:00:00+00:00",
+            compression_level=2,
+            content={"summary": "test"},
+            source_entities=[],
+            strength_threshold=0.0,
+            original_tokens=100,
+            compressed_tokens=50
+        )):
+            entry = engine.compress("content", "session_compress_2", level=2)
+            assert entry.compression_level == 2
+
+    def test_compress_level3_direct(self):
+        """compress() with level=3 delegates to _compress_level3"""
+        from working_memory import WorkingMemoryEngine, WorkingMemoryEntry
+
+        engine = WorkingMemoryEngine()
+
+        with patch.object(engine, '_compress_level3', return_value=WorkingMemoryEntry(
+            id="wm_test456",
+            session_id="session_compress_3",
+            timestamp="2026-04-01T00:00:00+00:00",
+            compression_level=3,
+            content={"facts": []},
+            source_entities=[],
+            strength_threshold=0.5,
+            original_tokens=100,
+            compressed_tokens=10
+        )):
+            entry = engine.compress("content", "session_compress_3", level=3, strength_threshold=0.5)
+            assert entry.compression_level == 3
+
 
 class TestRecover:
     """Tests for working memory recovery"""
