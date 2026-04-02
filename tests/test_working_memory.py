@@ -671,3 +671,144 @@ class TestStats:
             assert stats["total_entries"] == 0
             assert stats["total_sessions"] == 0
             assert stats["by_level"] == {1: 0, 2: 0, 3: 0}
+
+
+class TestWorkingMemoryEntry:
+    """Tests for WorkingMemoryEntry"""
+
+    def test_to_entry_dict_without_error(self):
+        """to_entry_dict excludes error field when no error"""
+        from working_memory import WorkingMemoryEntry
+
+        entry = WorkingMemoryEntry(
+            id="wm_test",
+            session_id="session_test",
+            timestamp="2026-04-01T00:00:00+00:00",
+            compression_level=1,
+            content={"full_text": "test"},
+            source_entities=[],
+            strength_threshold=0.0,
+            original_tokens=10,
+            compressed_tokens=10,
+        )
+
+        result = entry.to_entry_dict()
+        assert "error" not in result
+
+    def test_to_entry_dict_with_error(self):
+        """to_entry_dict includes error field when error present"""
+        from working_memory import WorkingMemoryEntry
+
+        entry = WorkingMemoryEntry(
+            id="wm_test",
+            session_id="session_test",
+            timestamp="2026-04-01T00:00:00+00:00",
+            compression_level=1,
+            content={"full_text": "test"},
+            source_entities=[],
+            strength_threshold=0.0,
+            original_tokens=10,
+            compressed_tokens=10,
+            error="KG unavailable",
+        )
+
+        result = entry.to_entry_dict()
+        assert result["error"] == "KG unavailable"
+
+
+class TestLoadSessionEntries:
+    """Tests for _load_session_entries"""
+
+    def test_load_session_entries_file_not_exists(self):
+        """Returns empty list when file doesn't exist"""
+        from working_memory import WorkingMemoryEngine, WORKING_MEMORY_FILE
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wm_file = Path(tmpdir) / "memory" / "working_memory.jsonl"
+
+            with patch('working_memory.WORKING_MEMORY_FILE', wm_file):
+                engine = WorkingMemoryEngine()
+                entries = engine._load_session_entries("any_session")
+
+            assert entries == []
+
+    def test_load_session_entries_with_data(self):
+        """Returns entries for matching session"""
+        from working_memory import WorkingMemoryEngine, WORKING_MEMORY_FILE
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wm_file = Path(tmpdir) / "memory" / "working_memory.jsonl"
+            wm_file.parent.mkdir(parents=True, exist_ok=True)
+
+            entry = {
+                "op": "write",
+                "entry": {
+                    "id": "wm_test123",
+                    "session_id": "session_match",
+                    "timestamp": "2026-04-01T00:00:00+00:00",
+                    "compression_level": 1,
+                    "content": {"full_text": "test"},
+                    "source_entities": [],
+                    "strength_threshold": 0.0,
+                    "original_tokens": 10,
+                    "compressed_tokens": 10,
+                }
+            }
+            wm_file.write_text(json.dumps(entry) + "\n")
+
+            with patch('working_memory.WORKING_MEMORY_FILE', wm_file):
+                engine = WorkingMemoryEngine()
+                entries = engine._load_session_entries("session_match")
+
+            assert len(entries) == 1
+            assert entries[0]["id"] == "wm_test123"
+
+
+class TestExtractEntityMentions:
+    """Tests for _extract_entity_mentions"""
+
+    def test_extract_entity_mentions_load_error(self):
+        """Returns empty list when load_all_entities raises exception"""
+        from working_memory import WorkingMemoryEngine
+
+        engine = WorkingMemoryEngine()
+
+        with patch('working_memory.load_all_entities', side_effect=Exception("KG error")):
+            result = engine._extract_entity_mentions("some content")
+
+        assert result == []
+
+    def test_extract_entity_mentions_matches_title(self):
+        """Finds entities with title matching content"""
+        from working_memory import WorkingMemoryEngine
+
+        mock_entities = {
+            "dec_1": {
+                "id": "dec_1",
+                "type": "Decision",
+                "properties": {"title": "数据库优化"}
+            }
+        }
+
+        engine = WorkingMemoryEngine()
+
+        with patch('working_memory.load_all_entities', return_value=mock_entities):
+            result = engine._extract_entity_mentions("讨论了数据库优化的问题")
+
+        assert "dec_1" in result
+
+
+class TestReconstructContentEdge:
+    """Tests for _reconstruct_content edge cases"""
+
+    def test_reconstruct_invalid_level(self):
+        """Returns empty string for invalid compression level"""
+        from working_memory import WorkingMemoryEngine
+
+        engine = WorkingMemoryEngine()
+        entry = {
+            "compression_level": 99,  # Invalid level
+            "content": {},
+        }
+        result = engine._reconstruct_content(entry)
+        assert result == ""
