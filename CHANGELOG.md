@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.3] - 2026-04-02
+
+### Added
+
+- **Benchmark Framework**: New `memory_bench/` tool comparing nanobot native memory vs nanobot + memory-optimization skill on response time. Includes CLI runner (`run.py`), subprocess-based agent runners, copytree with ignore_patterns for efficient skill copying, and 9 unit tests.
+
+### Changed
+
+- **.env.example**: Updated to reflect current EvoMap/ClawHub marketplace direction.
+
 ## [1.0.2] - 2026-03-27
 
 ### Added
