@@ -155,6 +155,117 @@ class TestRetrieveValueAwareFunction:
         mock_query.assert_called_once()
 
 
+class TestRetrieveByQuery:
+    """Test retrieve_by_query method"""
+
+    @patch('memory_ontology.retrieval.query_entities')
+    @patch('memory_ontology.retrieval.value_aware_sort')
+    def test_retrieve_by_query_matches_title(self, mock_sort, mock_query):
+        """Test retrieve_by_query matches query in title"""
+        mock_entities = [
+            {'id': 'test_1', 'type': 'Decision', 'properties': {'title': 'Architecture Decision', 'content': '', 'rationale': ''}},
+        ]
+        mock_query.return_value = mock_entities
+        mock_sort.return_value = [(mock_entities[0], 0.9)]
+
+        retriever = ValueAwareRetriever()
+        results = retriever.retrieve_by_query('architecture', entity_types=['Decision'])
+
+        assert len(results) == 1
+        assert results[0]['id'] == 'test_1'
+        assert results[0]['value_score'] == 0.9
+
+    @patch('memory_ontology.retrieval.query_entities')
+    @patch('memory_ontology.retrieval.value_aware_sort')
+    def test_retrieve_by_query_matches_content(self, mock_sort, mock_query):
+        """Test retrieve_by_query matches query in content"""
+        mock_entities = [
+            {'id': 'test_1', 'type': 'Decision', 'properties': {'title': 'Test', 'content': 'Important architecture notes', 'rationale': ''}},
+        ]
+        mock_query.return_value = mock_entities
+        mock_sort.return_value = [(mock_entities[0], 0.85)]
+
+        retriever = ValueAwareRetriever()
+        results = retriever.retrieve_by_query('architecture')
+
+        assert len(results) == 1
+        assert results[0]['value_score'] == 0.85
+
+    @patch('memory_ontology.retrieval.query_entities')
+    @patch('memory_ontology.retrieval.value_aware_sort')
+    def test_retrieve_by_query_matches_rationale(self, mock_sort, mock_query):
+        """Test retrieve_by_query matches query in rationale"""
+        mock_entities = [
+            {'id': 'test_1', 'type': 'Decision', 'properties': {'title': 'Test', 'content': '', 'rationale': 'Based on architecture principles'}},
+        ]
+        mock_query.return_value = mock_entities
+        mock_sort.return_value = [(mock_entities[0], 0.8)]
+
+        retriever = ValueAwareRetriever()
+        results = retriever.retrieve_by_query('architecture')
+
+        assert len(results) == 1
+
+    @patch('memory_ontology.retrieval.query_entities')
+    @patch('memory_ontology.retrieval.value_aware_sort')
+    def test_retrieve_by_query_no_match(self, mock_sort, mock_query):
+        """Test retrieve_by_query returns empty when no match"""
+        mock_entities = [
+            {'id': 'test_1', 'type': 'Decision', 'properties': {'title': 'Test', 'content': '', 'rationale': ''}},
+        ]
+        mock_query.return_value = mock_entities
+        mock_sort.return_value = []
+
+        retriever = ValueAwareRetriever()
+        results = retriever.retrieve_by_query('nonexistent')
+
+        assert len(results) == 0
+
+    @patch('memory_ontology.retrieval.query_entities')
+    @patch('memory_ontology.retrieval.value_aware_sort')
+    def test_retrieve_by_query_respects_min_score(self, mock_sort, mock_query):
+        """Test retrieve_by_query filters by min_value_score"""
+        mock_entities = [
+            {'id': 'test_1', 'type': 'Decision', 'properties': {'title': 'Architecture Test', 'content': '', 'rationale': ''}},
+        ]
+        mock_query.return_value = mock_entities
+        # Score below min_score threshold
+        mock_sort.return_value = [(mock_entities[0], 0.2)]
+
+        retriever = ValueAwareRetriever()
+        results = retriever.retrieve_by_query('architecture', min_value_score=0.5)
+
+        assert len(results) == 0
+
+    @patch('memory_ontology.retrieval.query_entities')
+    @patch('memory_ontology.retrieval.value_aware_sort')
+    def test_retrieve_by_query_case_insensitive(self, mock_sort, mock_query):
+        """Test retrieve_by_query is case insensitive"""
+        mock_entities = [
+            {'id': 'test_1', 'type': 'Decision', 'properties': {'title': 'ARCHITECTURE', 'content': '', 'rationale': ''}},
+        ]
+        mock_query.return_value = mock_entities
+        mock_sort.return_value = [(mock_entities[0], 0.9)]
+
+        retriever = ValueAwareRetriever()
+        results = retriever.retrieve_by_query('architecture')  # lowercase
+
+        assert len(results) == 1
+
+    @patch('memory_ontology.retrieval.query_entities')
+    @patch('memory_ontology.retrieval.value_aware_sort')
+    def test_retrieve_by_query_with_entity_types(self, mock_sort, mock_query):
+        """Test retrieve_by_query with entity_types filter"""
+        mock_query.return_value = []
+        mock_sort.return_value = []
+
+        retriever = ValueAwareRetriever()
+        retriever.retrieve_by_query('test', entity_types=['Decision', 'Finding'])
+
+        # Should call query_entities for each type
+        assert mock_query.call_count == 2
+
+
 class TestGetTopByType:
     """Test get_top_by_type method"""
 

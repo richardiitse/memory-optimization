@@ -245,6 +245,151 @@ class TestValueScoreCalculator:
         assert 'score' in components['strength']
         assert 'weight' in components['strength']
 
+    def test_calculate_with_zero_weight_sum(self):
+        """Test calculation returns 0.5 when all weights are zero"""
+        weights = {
+            'source_reliability': 0.0,
+            'strength': 0.0,
+            'significance': 0.0,
+            'preference_match': 0.0,
+            'recency_boost': 0.0
+        }
+        calc = ValueScoreCalculator(weights=weights)
+        entity = {
+            'id': 'test_123',
+            'type': 'Decision',
+            'properties': {'title': 'Test'}
+        }
+
+        score = calc.calculate(entity)
+        assert score == 0.5
+
+    def test_calculate_source_reliability_with_source_id_not_found(self):
+        """Test source reliability returns 0.5 when source_id exists but source not found"""
+        calc = ValueScoreCalculator()
+        entity = {
+            'id': 'test_123',
+            'type': 'Decision',
+            'properties': {'title': 'Test', 'source_id': 'nonexistent_source'}
+        }
+
+        with patch('memory_ontology.value_score.get_entity', return_value=None):
+            score = calc._calculate_source_reliability(entity)
+            assert score == 0.5
+
+    def test_calculate_source_reliability_with_non_memory_source(self):
+        """Test source reliability returns 0.5 when source is not MemorySource type"""
+        calc = ValueScoreCalculator()
+        entity = {
+            'id': 'test_123',
+            'type': 'Decision',
+            'properties': {'title': 'Test', 'source_id': 'some_source'}
+        }
+
+        with patch('memory_ontology.value_score.get_entity', return_value={
+            'id': 'some_source',
+            'type': 'Decision',  # Not MemorySource
+            'properties': {}
+        }):
+            score = calc._calculate_source_reliability(entity)
+            assert score == 0.5
+
+    def test_calculate_significance_with_significance_score_id(self):
+        """Test significance calculation when significance_score_id exists"""
+        calc = ValueScoreCalculator()
+        entity = {
+            'id': 'test_123',
+            'type': 'Decision',
+            'properties': {
+                'title': 'Test',
+                'significance_score_id': 'sig_123'
+            }
+        }
+
+        with patch('memory_ontology.value_score.get_entity', return_value={
+            'id': 'sig_123',
+            'type': 'SignificanceScore',
+            'properties': {'total_score': 0.85}
+        }):
+            score = calc._calculate_significance(entity)
+            assert score == 0.85
+
+    def test_calculate_significance_no_id_or_score(self):
+        """Test significance returns 0.5 when no significance_score_id and no found score"""
+        calc = ValueScoreCalculator()
+        entity = {
+            'id': 'test_123',
+            'type': 'Decision',
+            'properties': {'title': 'Test'}  # No significance_score_id
+        }
+
+        with patch('memory_ontology.value_score.load_all_entities', return_value={}):
+            score = calc._calculate_significance(entity)
+            assert score == 0.5
+
+    def test_calculate_preference_match_with_content_type(self):
+        """Test preference match with content type preference"""
+        calc = ValueScoreCalculator()
+        entity = {
+            'id': 'test_123',
+            'type': 'Decision',
+            'properties': {
+                'title': 'Test Decision',
+                'content': 'This mentions architecture patterns',
+                'rationale': ''
+            }
+        }
+
+        preferences = [
+            {
+                'id': 'pref_123',
+                'type': 'Preference',
+                'properties': {
+                    'preference_type': 'content',
+                    'pattern': 'architecture',
+                    'confidence': 0.9
+                }
+            }
+        ]
+        calc.preferences = preferences
+
+        score = calc._calculate_preference_match(entity)
+        assert score > 0.5
+
+    def test_calculate_recency_boost_with_z_suffix(self):
+        """Test recency boost handles ISO timestamp with Z suffix"""
+        calc = ValueScoreCalculator()
+        now = datetime.now()
+        recent_time = now - timedelta(hours=12)
+        entity = {
+            'id': 'test_123',
+            'type': 'Decision',
+            'properties': {
+                'title': 'Test',
+                'last_accessed': recent_time.isoformat() + 'Z'
+            }
+        }
+
+        score = calc._calculate_recency_boost(entity)
+        assert score == 1.0
+
+    def test_calculate_recency_boost_two_months_old(self):
+        """Test recency boost for entities older than 60 days"""
+        calc = ValueScoreCalculator()
+        now = datetime.now()
+        old_time = now - timedelta(days=90)
+        entity = {
+            'id': 'test_123',
+            'type': 'Decision',
+            'properties': {
+                'title': 'Test',
+                'last_accessed': old_time.isoformat()
+            }
+        }
+
+        score = calc._calculate_recency_boost(entity)
+        assert score == 0.4
+
 
 class TestValueAwareSort:
     """Test value_aware_sort function"""
