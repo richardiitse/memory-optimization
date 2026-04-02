@@ -219,6 +219,46 @@ export OPENAI_MODEL="glm-5"
 # Configure via KG_DIR environment variable
 ```
 
+## KG Sharing Across Agents
+
+Multi-agent setups can share a single Knowledge Graph for collaborative memory.
+
+### Setup
+
+```bash
+# 1. Create shared directory
+mkdir -p ~/.openclaw/shared-kg
+
+# 2. Create symlink to main KG
+ln -sf ~/.openclaw/workspace/memory/ontology/graph.jsonl ~/.openclaw/shared-kg/main-kg.jsonl
+```
+
+### Usage by Agents
+
+Each agent should reference the shared KG in their `TOOLS.md`:
+
+```markdown
+## Knowledge Graph (KG)
+
+- **共享 KG**: ~/.openclaw/shared-kg/main-kg.jsonl
+- 包含所有重要的长期记忆、决策、经验教训
+```
+
+### Script Usage with Shared KG
+
+```bash
+# Direct KG path
+KG_DIR=~/.openclaw/shared-kg python3 scripts/memory_ontology.py query --tags "#decision"
+
+# Or set in .env
+KG_DIR=~/.openclaw/shared-kg/
+```
+
+**Benefits:**
+- All agents access the same entity pool
+- Decisions and lessons are shared across agents
+- No duplicate entity creation
+
 ## OpenClaw Skill Invocation
 
 When the user types `/xmo`, OpenClaw automatically invokes this memory-optimization skill.
