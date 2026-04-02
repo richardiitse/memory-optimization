@@ -62,10 +62,18 @@ load_env_file()
 # 现在根据环境变量设置路径
 _kg_dir = os.environ.get('KG_DIR', '')  # 可配置的知识图谱目录
 ONTOLOGY_DIR = Path(_kg_dir) if _kg_dir else WORKSPACE_ROOT / "ontology"
+
 # 验证 KG_DIR 不超过工作区根目录（防止路径遍历攻击）
-# 临时禁用，允许写入主 KG
-# if not ONTOLOGY_DIR.resolve().is_relative_to(WORKSPACE_ROOT.resolve()):
-#     raise ValueError(f"KG_DIR must be within workspace root: {WORKSPACE_ROOT}")
+# 安全检查：当 KG_DIR 被显式设置时必须验证
+_ALLOW_ANY_KG_DIR = os.environ.get('ALLOW_ANY_KG_DIR', '').lower() in ('1', 'true', 'yes')
+if _kg_dir and not _ALLOW_ANY_KG_DIR:
+    try:
+        if not ONTOLOGY_DIR.resolve().is_relative_to(WORKSPACE_ROOT.resolve()):
+            raise ValueError(f"KG_DIR must be within workspace root: {WORKSPACE_ROOT}")
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"KG_DIR path validation failed: {e}")
 GRAPH_FILE = ONTOLOGY_DIR / "graph.jsonl"
 SCHEMA_FILE = ONTOLOGY_DIR / "memory-schema.yaml"
 BASE_SCHEMA_FILE = ONTOLOGY_DIR / "schema.yaml"

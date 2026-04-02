@@ -5,6 +5,7 @@ KG Extractor Tests
 
 import json
 import sys
+import tempfile
 from pathlib import Path
 from datetime import datetime
 from unittest.mock import Mock, patch
@@ -35,10 +36,21 @@ class TestJSONLParser:
 
     def test_scan_directory(self):
         """测试扫描目录"""
-        agents_dir = Path(__file__).parent.parent / 'agents'
-        files = JSONLParser.scan_directory(agents_dir)
-        assert len(files) > 0
-        assert all(f.suffix == '.jsonl' for f in files)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 创建正确的目录结构：agents/*/sessions/*.jsonl
+            agents_dir = Path(tmpdir)
+            sessions_dir = agents_dir / 'main' / 'sessions'
+            sessions_dir.mkdir(parents=True)
+
+            # 创建测试文件
+            (sessions_dir / 'session1.jsonl').write_text('{"messages": []}\n')
+            (sessions_dir / 'session2.jsonl').write_text('{"messages": []}\n')
+            # 创建非 jsonl 文件（应被忽略）
+            (sessions_dir / 'readme.txt').write_text('not a jsonl')
+
+            files = JSONLParser.scan_directory(agents_dir)
+            assert len(files) == 2
+            assert all(f.suffix == '.jsonl' for f in files)
 
 
 class TestMessageFilter:
