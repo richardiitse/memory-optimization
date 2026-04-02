@@ -150,6 +150,15 @@ python3 scripts/memory_dashboard.py json
 python3 -m pytest tests/ -v
 ```
 
+### Benchmark Framework
+```bash
+# Run benchmark comparing nanobot native vs with memory-optimization skill
+python3 memory_bench/run.py "task description"
+
+# Run with custom timeout
+python3 memory_bench/run.py "task" --timeout 60
+```
+
 ### Grep Search
 ```bash
 grep -r "#memory" memory/
@@ -171,6 +180,13 @@ memory-optimization/
 ├── SKILL-SUMMARY.md            # Skill summary for quick reference
 ├── TODOS.md                    # Project TODOs
 ├── CLAUDE.md                   # This file
+├── memory_bench/               # Benchmark framework for measuring skill effectiveness
+│   ├── run.py                  # CLI entry point
+│   ├── agents/                 # Agent runners
+│   │   ├── nanobot_base.py     # nanobot native memory baseline
+│   │   └── nanobot_with_memory.py  # nanobot + memory-optimization skill
+│   ├── report.py               # Text comparison report
+│   └── tasks/                  # Sample benchmark tasks
 ├── scripts/
 │   ├── daily-cleanup.sh        # 3-minute daily maintenance
 │   ├── test-memory-system.sh   # Testing framework (6 tests)
@@ -188,6 +204,7 @@ memory-optimization/
 │   │   └── llm_client.py       # Unified LLM client
 │   └── README.md               # Scripts documentation
 ├── tests/
+│   ├── test_benchmark.py       # Benchmark framework tests
 │   ├── test_kg_extractor.py   # KG extractor unit tests
 │   ├── test_consolidation_engine.py  # Consolidation engine tests
 │   ├── test_preference_engine.py  # Preference engine tests
