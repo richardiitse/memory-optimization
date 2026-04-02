@@ -483,3 +483,178 @@ class TestEmptyKG:
 
             stage3 = loader.load_stage3()
             assert stage3['skill_cards'] == []
+
+
+class TestValueAwareLoading:
+    """Tests for Phase 6b value-aware memory loading."""
+
+    def test_load_stage1_value_returns_value_aware_results(self):
+        """Stage 1 value-aware returns results with value_aware flag."""
+        from memory_loader import MemoryLoader
+
+        mock_entities = {
+            'pref_1': make_entity('Preference', 'pref_1', {
+                'title': 'Test Pref',
+                'strength': 0.9,
+                'pattern': 'test',
+                'preference_type': 'tool',
+                'learned_at': datetime.now(timezone.utc).isoformat(),
+            }),
+            'dec_1': make_entity('Decision', 'dec_1', {
+                'title': 'Test Decision',
+                'strength': 0.9,
+                'made_at': datetime.now(timezone.utc).isoformat(),
+            }),
+        }
+
+        with patch('memory_loader.load_all_entities', return_value=mock_entities):
+            with patch('memory_ontology.retrieval.ValueAwareRetriever') as MockRetriever:
+                mock_retriever = MagicMock()
+                MockRetriever.return_value = mock_retriever
+                mock_retriever.retrieve.return_value = [mock_entities['pref_1']]
+
+                loader = MemoryLoader()
+                result = loader.load_stage1_value(min_value_score=0.3)
+
+        assert result['stage'] == 1
+        assert result.get('value_aware') is True
+
+    def test_load_stage2_value_filters_by_project(self):
+        """Stage 2 value-aware can filter by project_id."""
+        from memory_loader import MemoryLoader
+
+        mock_entities = {
+            'dec_proj_a': make_entity('Decision', 'dec_proj_a', {
+                'title': 'Decision for Project A',
+                'related_projects': ['project_a'],
+                'strength': 0.5,
+            }),
+            'commit_1': make_entity('Commitment', 'commit_1', {
+                'description': 'Test',
+                'status': 'pending',
+                'created_at': datetime.now(timezone.utc).isoformat(),
+            }),
+        }
+
+        with patch('memory_loader.load_all_entities', return_value=mock_entities):
+            with patch('memory_loader.ValueAwareRetriever') as MockRetriever:
+                mock_retriever = MagicMock()
+                MockRetriever.return_value = mock_retriever
+                mock_retriever.retrieve.return_value = [mock_entities['dec_proj_a']]
+
+                loader = MemoryLoader()
+                result = loader.load_stage2_value(project_id='project_a', min_value_score=0.3)
+
+        assert result['stage'] == 2
+        assert result.get('value_aware') is True
+        assert len(result['decisions']) == 1
+        assert result['decisions'][0]['id'] == 'dec_proj_a'
+
+    def test_load_stage3_value_returns_skill_cards(self):
+        """Stage 3 value-aware returns skill cards."""
+        from memory_loader import MemoryLoader
+
+        mock_entities = {
+            'skill_1': make_entity('SkillCard', 'skill_1', {
+                'title': 'Test Skill',
+                'strength': 0.8,
+                'summary': 'Test summary',
+            }),
+        }
+
+        with patch('memory_loader.load_all_entities', return_value=mock_entities):
+            with patch('memory_loader.ValueAwareRetriever') as MockRetriever:
+                mock_retriever = MagicMock()
+                MockRetriever.return_value = mock_retriever
+                mock_retriever.retrieve.return_value = [mock_entities['skill_1']]
+
+                loader = MemoryLoader()
+                result = loader.load_stage3_value(min_value_score=0.3)
+
+        assert result['stage'] == 3
+        assert result.get('value_aware') is True
+        assert len(result['skill_cards']) == 1
+
+    def test_load_all_stages_value_combines_all_stages(self):
+        """load_all_stages_value returns all three stages."""
+        from memory_loader import MemoryLoader
+
+        mock_entities = {
+            'pref_1': make_entity('Preference', 'pref_1', {
+                'title': 'Test Pref',
+                'strength': 0.9,
+                'pattern': 'test',
+                'preference_type': 'tool',
+                'learned_at': datetime.now(timezone.utc).isoformat(),
+            }),
+            'commit_1': make_entity('Commitment', 'commit_1', {
+                'description': 'Test Commit',
+                'status': 'pending',
+                'created_at': datetime.now(timezone.utc).isoformat(),
+            }),
+            'skill_1': make_entity('SkillCard', 'skill_1', {
+                'title': 'Test Skill',
+                'strength': 0.8,
+                'summary': 'Test',
+            }),
+        }
+
+        with patch('memory_loader.load_all_entities', return_value=mock_entities):
+            with patch('memory_loader.ValueAwareRetriever') as MockRetriever:
+                mock_retriever = MagicMock()
+                MockRetriever.return_value = mock_retriever
+                mock_retriever.retrieve.return_value = []
+
+                loader = MemoryLoader()
+                result = loader.load_all_stages_value(min_value_score=0.3)
+
+        assert 'stage1' in result
+        assert 'stage2' in result
+        assert 'stage3' in result
+        assert result['stage1']['value_aware'] is True
+        assert result['stage2']['value_aware'] is True
+        assert result['stage3']['value_aware'] is True
+
+    def test_value_aware_uses_custom_min_score(self):
+        """Value-aware loading respects min_value_score parameter."""
+        from memory_loader import MemoryLoader
+
+        with patch('memory_loader.load_all_entities', return_value={}):
+            with patch('memory_loader.ValueAwareRetriever') as MockRetriever:
+                mock_retriever = MagicMock()
+                MockRetriever.return_value = mock_retriever
+                mock_retriever.retrieve.return_value = []
+
+                loader = MemoryLoader()
+                loader.load_stage1_value(min_value_score=0.7)
+
+                # Verify retrieve was called with correct min_value_score
+                call_args = mock_retriever.retrieve.call_args
+                assert call_args[1]['min_value_score'] == 0.7
+
+    def test_retriever_initialized_with_preferences(self):
+        """MemoryLoader initializes ValueAwareRetriever with preferences."""
+        from memory_loader import MemoryLoader
+
+        mock_prefs = [
+            make_entity('Preference', 'pref_1', {
+                'title': 'Test',
+                'strength': 0.9,
+                'pattern': 'test',
+                'preference_type': 'tool',
+                'learned_at': datetime.now(timezone.utc).isoformat(),
+            })
+        ]
+
+        with patch('memory_loader.load_all_entities', return_value={}):
+            with patch('memory_loader.ValueAwareRetriever') as MockRetriever:
+                mock_retriever = MagicMock()
+                MockRetriever.return_value = mock_retriever
+                mock_retriever.retrieve.return_value = []
+
+                loader = MemoryLoader(preferences=mock_prefs)
+
+                # Verify ValueAwareRetriever was initialized with preferences
+                MockRetriever.assert_called_once()
+                call_kwargs = MockRetriever.call_args[1]
+                assert call_kwargs['preferences'] == mock_prefs

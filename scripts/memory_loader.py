@@ -23,6 +23,7 @@ from typing import Dict, List, Optional
 
 # Import from memory_ontology — reuse existing infrastructure
 from memory_ontology import load_all_entities
+from memory_ontology.retrieval import ValueAwareRetriever
 
 # Import shared LLM client
 from utils.llm_client import LLMClient
@@ -41,8 +42,17 @@ SEMANTIC_STRENGTH_THRESHOLD = 0.5
 class MemoryLoader:
     """Proactive memory recovery — staged loading at agent startup."""
 
-    def __init__(self, llm_client: Optional[LLMClient] = None):
+    def __init__(self, llm_client: Optional[LLMClient] = None,
+                 preferences: Optional[List[Dict]] = None):
+        """Initialize MemoryLoader.
+
+        Args:
+            llm_client: Optional LLM client for hints generation
+            preferences: Optional user preferences for value-aware scoring
+        """
         self.llm_client = llm_client or LLMClient()
+        self.preferences = preferences or []
+        self._retriever = ValueAwareRetriever(preferences=self.preferences)
 
     # --- Public API ---
 
@@ -171,6 +181,167 @@ class MemoryLoader:
             'proactive_hints': hints,
             'loaded_at': datetime.now(timezone.utc).isoformat(),
             'stage': 3,
+        }
+
+    # --- Value-Aware Loading (Phase 6b) ---
+
+    def load_stage1_value(self, min_value_score: float = 0.4) -> Dict:
+        """Load core identity memories with value-aware scoring.
+
+        Args:
+            min_value_score: Minimum value score threshold (default 0.4)
+
+        Returns:
+            Dict with 'preferences', 'recent_decisions', 'recent_lessons',
+            'loaded_at', 'stage'
+        """
+        try:
+            entities = load_all_entities()
+        except (OSError, IOError, PermissionError) as e:
+            warnings.warn(f"KG unavailable during Stage 1: {e}")
+            return self._empty_stage(1, error=str(e))
+
+        # Value-aware retrieval for each category
+        preferences = self._retriever.retrieve(
+            entity_types=['Preference'],
+            min_value_score=min_value_score,
+            limit=20
+        )
+
+        # Get recent high-value decisions
+        recent_decisions = self._retriever.retrieve(
+            entity_types=['Decision'],
+            min_value_score=min_value_score,
+            limit=20
+        )
+
+        # Get recent high-value lessons
+        recent_lessons = self._retriever.retrieve(
+            entity_types=['LessonLearned'],
+            min_value_score=min_value_score,
+            limit=20
+        )
+
+        return {
+            'preferences': preferences,
+            'recent_decisions': recent_decisions,
+            'recent_lessons': recent_lessons,
+            'loaded_at': datetime.now(timezone.utc).isoformat(),
+            'stage': 1,
+            'value_aware': True,
+        }
+
+    def load_stage2_value(self, project_id: str = None, min_value_score: float = 0.4) -> Dict:
+        """Load related episodic memory with value-aware scoring.
+
+        Args:
+            project_id: Optional project filter
+            min_value_score: Minimum value score threshold (default 0.4)
+
+        Returns:
+            Dict with 'decisions', 'commitments', 'findings',
+            'loaded_at', 'stage'
+        """
+        try:
+            entities = load_all_entities()
+        except (OSError, IOError, PermissionError) as e:
+            warnings.warn(f"KG unavailable during Stage 2: {e}")
+            return self._empty_stage(2, error=str(e))
+
+        # Value-aware decisions (optionally filtered by project)
+        decisions = self._retriever.retrieve(
+            entity_types=['Decision'],
+            min_value_score=min_value_score,
+            limit=50
+        )
+
+        # Filter by project if specified
+        if project_id:
+            decisions = [
+                d for d in decisions
+                if project_id in d.get('properties', {}).get('related_projects', [])
+            ]
+
+        # Get pending commitments
+        commitments = [
+            e for e in entities.values()
+            if e['type'] == 'Commitment'
+            and e.get('properties', {}).get('status') == 'pending'
+        ]
+
+        # Get important findings
+        findings = self._retriever.retrieve(
+            entity_types=['Finding'],
+            min_value_score=min_value_score,
+            limit=20
+        )
+
+        return {
+            'decisions': decisions,
+            'commitments': commitments,
+            'findings': findings,
+            'loaded_at': datetime.now(timezone.utc).isoformat(),
+            'stage': 2,
+            'value_aware': True,
+        }
+
+    def load_stage3_value(self, context: str = None, min_value_score: float = 0.4) -> Dict:
+        """Load semantic memory with value-aware scoring.
+
+        Args:
+            context: Optional context string for relevance filtering
+            min_value_score: Minimum value score threshold (default 0.4)
+
+        Returns:
+            Dict with 'skill_cards', 'proactive_hints',
+            'loaded_at', 'stage'
+        """
+        try:
+            entities = load_all_entities()
+        except (OSError, IOError, PermissionError) as e:
+            warnings.warn(f"KG unavailable during Stage 3: {e}")
+            return self._empty_stage(3, error=str(e))
+
+        # Value-aware skill cards
+        skill_cards = self._retriever.retrieve(
+            entity_types=['SkillCard'],
+            min_value_score=min_value_score,
+            limit=20
+        )
+
+        # Generate proactive hints if context provided
+        hints = []
+        if context and skill_cards:
+            hints = self._generate_proactive_hints(skill_cards, context)
+
+        return {
+            'skill_cards': skill_cards,
+            'proactive_hints': hints,
+            'loaded_at': datetime.now(timezone.utc).isoformat(),
+            'stage': 3,
+            'value_aware': True,
+        }
+
+    def load_all_stages_value(self, project_id: str = None,
+                              min_value_score: float = 0.4) -> Dict:
+        """Load all three stages with value-aware scoring.
+
+        Args:
+            project_id: Optional project filter for Stage 2
+            min_value_score: Minimum value score threshold
+
+        Returns:
+            Dict with all three stages combined
+        """
+        stage1 = self.load_stage1_value(min_value_score)
+        stage2 = self.load_stage2_value(project_id, min_value_score)
+        stage3 = self.load_stage3_value(context=None, min_value_score=min_value_score)
+
+        return {
+            'stage1': stage1,
+            'stage2': stage2,
+            'stage3': stage3,
+            'loaded_at': datetime.now(timezone.utc).isoformat(),
         }
 
     def load_all_stages(self, project_id: str = None) -> Dict:
@@ -335,8 +506,21 @@ def main():
     )
     subparsers = parser.add_subparsers(dest='command', help='Commands')
 
+    # Base arguments for value-aware loading
+    base_parser = argparse.ArgumentParser(add_help=False)
+    base_parser.add_argument(
+        '--value-aware', action='store_true',
+        help='Use value-aware retrieval (Phase 6b)'
+    )
+    base_parser.add_argument(
+        '--min-score', type=float, default=0.4,
+        help='Minimum value score (default 0.4)'
+    )
+
     # stage1 command
-    subparsers.add_parser('stage1', help='Load Stage 1 (core identity)')
+    stage1_parser = subparsers.add_parser('stage1', help='Load Stage 1 (core identity)')
+    stage1_parser.add_argument('--value-aware', action='store_true')
+    stage1_parser.add_argument('--min-score', type=float, default=0.4)
 
     # stage2 command
     stage2_parser = subparsers.add_parser(
@@ -345,6 +529,8 @@ def main():
     stage2_parser.add_argument(
         '--project-id', help='Filter by project ID'
     )
+    stage2_parser.add_argument('--value-aware', action='store_true')
+    stage2_parser.add_argument('--min-score', type=float, default=0.4)
 
     # stage3 command
     stage3_parser = subparsers.add_parser(
@@ -353,6 +539,8 @@ def main():
     stage3_parser.add_argument(
         '--context', help='Context string for relevance filtering'
     )
+    stage3_parser.add_argument('--value-aware', action='store_true')
+    stage3_parser.add_argument('--min-score', type=float, default=0.4)
 
     # recover command (all stages)
     recover_parser = subparsers.add_parser(
@@ -361,6 +549,8 @@ def main():
     recover_parser.add_argument(
         '--project-id', help='Filter by project ID for Stage 2'
     )
+    recover_parser.add_argument('--value-aware', action='store_true')
+    recover_parser.add_argument('--min-score', type=float, default=0.4)
 
     # stats command
     subparsers.add_parser('stats', help='Show memory statistics')
@@ -374,19 +564,40 @@ def main():
     loader = MemoryLoader()
 
     if args.command == 'stage1':
-        result = loader.load_stage1()
+        if getattr(args, 'value_aware', False):
+            result = loader.load_stage1_value(min_value_score=args.min_score)
+        else:
+            result = loader.load_stage1()
         print(json.dumps(result, ensure_ascii=False, indent=2))
 
     elif args.command == 'stage2':
-        result = loader.load_stage2(args.project_id)
+        if getattr(args, 'value_aware', False):
+            result = loader.load_stage2_value(
+                project_id=args.project_id,
+                min_value_score=args.min_score
+            )
+        else:
+            result = loader.load_stage2(args.project_id)
         print(json.dumps(result, ensure_ascii=False, indent=2))
 
     elif args.command == 'stage3':
-        result = loader.load_stage3(args.context)
+        if getattr(args, 'value_aware', False):
+            result = loader.load_stage3_value(
+                context=args.context,
+                min_value_score=args.min_score
+            )
+        else:
+            result = loader.load_stage3(args.context)
         print(json.dumps(result, ensure_ascii=False, indent=2))
 
     elif args.command == 'recover':
-        result = loader.load_all_stages(args.project_id)
+        if getattr(args, 'value_aware', False):
+            result = loader.load_all_stages_value(
+                project_id=args.project_id,
+                min_value_score=args.min_score
+            )
+        else:
+            result = loader.load_all_stages(args.project_id)
         print(json.dumps(result, ensure_ascii=False, indent=2))
 
     elif args.command == 'stats':
