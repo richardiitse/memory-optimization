@@ -1,22 +1,25 @@
 # Codemap Diff Report
-Generated: 2026-04-02
+Generated: 2026-04-03
 
 ## Summary
-- **Action:** Phase 4 codemap update
-- **Files modified:** 3 codemap files
+- **Action:** memory_ontology.py refactoring codemap update
+- **Files modified:** 1 codemap file
 
 ## Changes
 
 | File | Change |
 |------|--------|
-| architecture.md | Added Phase 4 section + Concept-Mediated Graph diagram |
-| data.md | Added Concept entity type + concept relations (is_a, part_of, synonym_of, instance_of) |
-| scripts.md | Added 3 Phase 4 scripts (concept_extractor.py, concept_hierarchy.py, concept_mediated_graph.py) |
+| scripts.md | Added memory_ontology package structure diagram |
 
-## Phase Status Update
-- Phase 4: Concept-Mediated Graph ✅ Done
-- Phase 8: Write-Time Gating ✅ Done
-- Value-Aware Retrieval: Pending
+## Key Changes Since Last Codemap
+- memory_ontology.py (1619 lines) → memory_ontology/ package (10 modules, max 393 lines)
+- CLI integration tests added (13 tests)
+- Benchmark framework added (memory_bench/)
+- Total tests: 241 passed
+
+## Phase Status
+- Phase 1-4, 5, 7-8: ✅ Done
+- Phase 6 (Value-Aware Retrieval): Pending
 
 ## Staleness Warnings
-None - updated for Phase 4
+None - recently updated
