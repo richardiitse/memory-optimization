@@ -64,6 +64,10 @@ python3 scripts/memory_ontology.py <command> [options]
 - `list` - List all entities
 - `export` - Export to Markdown
 - `stats` - Show statistics
+- `compact` - Compact graph.jsonl (dedup versions)
+- `gate` - Phase 8: Evaluate entity gating score
+- `archived` - Phase 8: List archived entities
+- `retrieve` - Phase 6: Value-aware retrieval
 
 **Examples:**
 
