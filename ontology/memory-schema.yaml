@@ -333,6 +333,45 @@ types:
         default: "medium"
         description: "来源信任度"
 
+  # ========== Phase 4: Concept-Mediated Graph ==========
+
+  Concept:
+    required: [name]
+    properties:
+      name:
+        type: string
+        description: "Concept name (unique identifier)"
+      description:
+        type: string
+        description: "Concept description"
+      related_concepts:
+        type: array
+        description: "Related concept IDs"
+      instance_count:
+        type: number
+        default: 0
+        description: "Number of entities linked to this concept"
+      created_at:
+        type: string
+        description: "Creation time (ISO 8601)"
+      tags:
+        type: array
+        description: "Tags (#concept, #performance, etc.)"
+      strength:
+        type: number
+        default: 1.0
+        description: "Memory strength"
+      decay_rate:
+        type: number
+        default: 0.95
+        description: "Decay rate"
+      last_accessed:
+        type: string
+        description: "Last access time (ISO 8601)"
+      provenance:
+        type: array
+        description: "Source tracking"
+
   # ========== Phase 8: Write-Time Gating (AEAM) ==========
 # 基于 Selective Memory 论文的写入时门控机制
 # 参考: https://arxiv.org/abs/2603.15994
@@ -748,6 +787,32 @@ relations:
     to_types: [Decision, Finding, LessonLearned, Commitment]
     cardinality: many_to_many
     description: "ConflictReview 标记的冲突实体"
+
+  # ========== Phase 4: Concept-Mediated Graph 关系 ==========
+
+  is_a:
+    from_types: [Concept]
+    to_types: [Concept]
+    cardinality: many_to_many
+    description: "Concept hierarchy - child is_a parent (e.g., 'Cache Optimization' is_a 'Performance')"
+
+  part_of:
+    from_types: [Concept]
+    to_types: [Concept]
+    cardinality: many_to_many
+    description: "Concept aggregation - child is part of parent (e.g., 'Redis' part_of 'Caching')"
+
+  synonym_of:
+    from_types: [Concept]
+    to_types: [Concept]
+    cardinality: many_to_many
+    description: "Concept synonym relationship (e.g., 'Speed' synonym_of 'Performance')"
+
+  instance_of:
+    from_types: [Decision, Finding, LessonLearned, SkillCard, ContextSnapshot]
+    to_types: [Concept]
+    cardinality: many_to_many
+    description: "Entity is an instance of/conceptualized by a concept"
 
   # ========== 项目和任务关系 (继承自原 schema) ==========
   
