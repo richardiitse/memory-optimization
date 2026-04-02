@@ -408,24 +408,46 @@ def load_all_entities() -> Dict[str, Dict]:
     lock_file = GRAPH_FILE.with_suffix('.lock')
     lock_f = _acquire_lock_with_timeout(lock_file, fcntl.LOCK_SH)
     try:
+        # Read all records first
+        records = []
         with open(GRAPH_FILE, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if not line:
                     continue
-
                 try:
                     operation = json.loads(line)
-                    if operation['op'] == 'create':
-                        entity = operation['entity']
-                        entities[entity['id']] = entity
-                    elif operation['op'] == 'update':
-                        entity_id = operation['entity']['id']
-                        if entity_id in entities:
-                            entities[entity_id]['properties'].update(operation['entity']['properties'])
-                            entities[entity_id]['updated'] = operation['entity']['updated']
+                    records.append(operation)
                 except json.JSONDecodeError:
                     continue
+        
+        # Sort by timestamp to ensure correct order
+        records.sort(key=lambda x: x.get('timestamp', ''))
+        
+        # Process in order: create first, then updates
+        for operation in records:
+            if operation.get('op') == 'create':
+                if 'entity' in operation:
+                    entity = operation['entity']
+                    entities[entity['id']] = entity
+                elif 'relation' in operation:
+                    # Skip relation records
+                    continue
+            elif operation.get('op') == 'update':
+                if 'entity' in operation:
+                    entity = operation['entity']
+                    entity_id = entity.get('id')
+                    if entity_id:
+                        if entity_id in entities:
+                            # Update existing entity
+                            entities[entity_id]['properties'].update(entity.get('properties', {}))
+                            entities[entity_id]['updated'] = entity.get('updated', entities[entity_id].get('updated'))
+                            # Also update type if missing
+                            if not entities[entity_id].get('type') and entity.get('type'):
+                                entities[entity_id]['type'] = entity['type']
+                        else:
+                            # Create from update (if no create record exists)
+                            entities[entity_id] = entity
     finally:
         fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
         lock_f.close()
