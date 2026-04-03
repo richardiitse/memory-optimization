@@ -1,23 +1,19 @@
-#!/usr/bin/env python3
 """
-Agent Memory Ontology Manager
-知识图谱记忆管理工具
+Memory Ontology Package
 
-提供命令行接口用于创建、查询和管理 Agent 记忆实体
+Provides knowledge graph management for agent memory with:
+- Entity CRUD operations with strength/decay tracking
+- Relation management
+- Schema validation
+- Phase 6 Value-Aware Retrieval
+- Phase 8 Write-Time Gating
+- Cold storage archiving
 
-使用方法:
-    python3 memory_ontology.py create --type Decision --props '{"title":"...","rationale":"..."}'
-    python3 memory_ontology.py query --type Finding --tags "#memory"
-    python3 memory_ontology.py relate --from find_001 --rel led_to_decision --to dec_001
-    python3 memory_ontology.py validate
-
-NOTE: This file is now a backward-compatible shim.
-The actual implementation has been moved to the memory_ontology package.
+Backward-compatible re-exports for existing imports.
 """
 
-# Re-export all public API from the memory_ontology package for backward compatibility
-from memory_ontology import (
-    # config
+# Re-export from config module
+from .config import (
     load_env_file,
     SCRIPT_DIR,
     WORKSPACE_ROOT,
@@ -29,17 +25,26 @@ from memory_ontology import (
     DECAY_THRESHOLD,
     ACCESS_DECAY_THRESHOLD_HOURS,
     LOCK_TIMEOUT_SECONDS,
-    # schema
+)
+
+# Re-export from schema module
+from .schema import (
     load_schema,
     validate_entity,
-    # storage
+)
+
+# Re-export from storage module
+from .storage import (
     _acquire_lock_with_timeout,
     _write_to_graph,
     ensure_ontology_dir,
     load_all_entities,
     load_all_relations,
     compact_graph,
-    # entity_ops
+)
+
+# Re-export from entity_ops module
+from .entity_ops import (
     generate_entity_id,
     get_default_decay_rate,
     add_memory_evolution_fields,
@@ -52,26 +57,54 @@ from memory_ontology import (
     get_entities_by_strength,
     get_entities_by_type,
     get_strength_distribution,
-    # relation_ops
+)
+
+# Re-export from relation_ops module
+from .relation_ops import (
     create_relation,
     get_related_entities,
-    # query
+)
+
+# Re-export from query module
+from .query import (
     query_entities,
     validate_graph,
     export_to_markdown,
-    # gating
+)
+
+# Re-export from gating module
+from .gating import (
     get_or_create_source,
     update_source_reliability,
     get_default_gating_policy,
     get_all_active_entities,
     get_all_archived_entities,
-    # archived_memory
+)
+
+# Re-export from archived_memory module
+from .archived_memory import (
     archive_entity_to_cold_storage,
     recover_entity_from_cold_storage,
     list_cold_storage_entities,
-    # cli
+)
+
+# Re-export from cli module
+from .cli import (
     print_entity,
     main,
+)
+
+# Re-export from value_score module (Phase 6)
+from .value_score import (
+    ValueScoreCalculator,
+    value_aware_sort,
+    DEFAULT_WEIGHTS,
+)
+
+# Re-export from retrieval module (Phase 6)
+from .retrieval import (
+    ValueAwareRetriever,
+    retrieve_value_aware,
 )
 
 __all__ = [
@@ -130,8 +163,11 @@ __all__ = [
     # cli
     'print_entity',
     'main',
+    # value_score (Phase 6)
+    'ValueScoreCalculator',
+    'value_aware_sort',
+    'DEFAULT_WEIGHTS',
+    # retrieval (Phase 6)
+    'ValueAwareRetriever',
+    'retrieve_value_aware',
 ]
-
-
-if __name__ == '__main__':
-    main()

@@ -94,9 +94,11 @@ See [scripts/README.md](scripts/README.md) for detailed usage:
 
 - `daily-cleanup.sh` - 3-minute daily memory maintenance
 - `test-memory-system.sh` - Verify all improvements working
-- `memory_ontology.py` - Knowledge Graph management tool
+- `memory_ontology.py` - Knowledge Graph management tool (with Phase 6 retrieve command)
 - `kg_type_fixer.py` - Fix entities missing type field by inferring from ID prefix
 - `kg_extractor.py` - KG extraction from agent sessions (LLM-driven)
+- `write_time_gating.py` - Phase 8: Write-time gating evaluation
+- `archived_memory_store.py` - Cold storage management (Phase 8)
 - `preference_engine.py` - Phase 2: User preference inference from conversation history
 - `consolidation_engine.py` - Phase 3: consolidate similar episodes into SkillCards
 - `decay_engine.py` - Batch decay engine for memory strength management
@@ -104,6 +106,21 @@ See [scripts/README.md](scripts/README.md) for detailed usage:
 - `working_memory.py` - Phase 5: Context Window layered compression (3 levels)
 - `memory_loader.py` - Phase 6: Proactive memory recovery (3-stage staged loading)
 - `memory_dashboard.py` - Phase 7: Memory health dashboard (Health Score, decay forecast)
+
+## Phase 6: Value-Aware Retrieval
+
+KG entities can be retrieved by value score (weighted combination of reliability, strength, significance, preference match, recency):
+
+```bash
+# Retrieve entities sorted by value score
+python3 scripts/memory_ontology.py retrieve --types Decision Finding --min-score 0.4
+
+# Query by text and filter by score
+python3 scripts/memory_ontology.py retrieve --query "architecture" --show-scores
+
+# CLI help
+python3 scripts/memory_ontology.py retrieve --help
+```
 
 ## References
 

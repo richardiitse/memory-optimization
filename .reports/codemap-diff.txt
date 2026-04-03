@@ -2,21 +2,28 @@
 Generated: 2026-04-02
 
 ## Summary
-- **Action:** Phase 4 codemap update
-- **Files modified:** 3 codemap files
+- **Action:** Phase 6 Value-Aware Retrieval codemap update
+- **Files modified:** 2 codemap files
 
 ## Changes
 
 | File | Change |
 |------|--------|
-| architecture.md | Added Phase 4 section + Concept-Mediated Graph diagram |
-| data.md | Added Concept entity type + concept relations (is_a, part_of, synonym_of, instance_of) |
-| scripts.md | Added 3 Phase 4 scripts (concept_extractor.py, concept_hierarchy.py, concept_mediated_graph.py) |
+| architecture.md | Added Phase 6 section, updated Phase status |
+| scripts.md | Added retrieve CLI command, value_score.py, retrieval.py |
 
-## Phase Status Update
-- Phase 4: Concept-Mediated Graph ✅ Done
-- Phase 8: Write-Time Gating ✅ Done
-- Value-Aware Retrieval: Pending
+## Key Changes Since Last Codemap
+- Phase 6 Value-Aware Retrieval implemented:
+  - value_score.py: 5-component weighted scoring
+  - retrieval.py: ValueAwareRetriever class
+  - CLI retrieve command added
+- memory_ontology package now 12 modules (added value_score, retrieval)
+- Tests: 267 passed
+
+## Phase Status
+- Phase 1-5, 7-8: ✅ Done
+- Phase 6a (Value-Aware Retrieval): ✅ Done
+- Phase 6b (Memory Loader Integration): Pending
 
 ## Staleness Warnings
-None - updated for Phase 4
+None - updated 2026-04-02

@@ -9,9 +9,12 @@ __pycache__/
 
 # 参考文献目录（本地参考资料）
 references/
+agents/
+docs/
 
 # Ontology 数据文件（本地缓存，不同步）
 ontology/embed_cache.jsonl
+ontology/gating_embed_cache.jsonl
 ontology/graph.jsonl
 ontology/graph.jsonl.backup.*
 ontology/graph.lock

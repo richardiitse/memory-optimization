@@ -155,7 +155,7 @@ def get_stats(skill_name: str = None) -> dict:
                             stats["by_skill"][skill] += 1
                             stats["by_status"][status] += 1
                             stats["by_category"][category] += 1
-                except:
+                except Exception:
                     continue
     
     # 转换 Counter 为 dict
@@ -201,7 +201,7 @@ def scan_sessions(save_to_kg=False):
     if last_scan_file.exists():
         try:
             last_scan = json.loads(last_scan_file.read_text())
-        except:
+        except Exception:
             pass
     # 技能调用模式（命令 -> 技能名）
     SKILL_PATTERNS = {
@@ -244,9 +244,9 @@ def scan_sessions(save_to_kg=False):
                                         for pattern, skill in SKILL_PATTERNS.items():
                                             if pattern in command:
                                                 found_skills[skill] += 1
-                    except:
+                    except Exception:
                         continue
-        except:
+        except Exception:
             continue
     
     print(f"\n🔍 最近 session 扫描结果:")

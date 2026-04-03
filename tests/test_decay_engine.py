@@ -42,7 +42,9 @@ class TestAccessDecay:
             graph_file.touch()
 
             with patch('memory_ontology.GRAPH_FILE', graph_file), \
-                 patch('memory_ontology.ONTOLOGY_DIR', Path(tmpdir)):
+                 patch('memory_ontology.ONTOLOGY_DIR', Path(tmpdir)), \
+                 patch('memory_ontology.storage.GRAPH_FILE', graph_file), \
+                 patch('memory_ontology.storage.ONTOLOGY_DIR', Path(tmpdir)):
                 from memory_ontology import create_entity, _read_entity_from_graph
 
                 # 创建实体
@@ -146,6 +148,8 @@ class TestDecayEngine:
 
             with patch('memory_ontology.GRAPH_FILE', graph_file), \
                  patch('memory_ontology.ONTOLOGY_DIR', Path(tmpdir)), \
+                 patch('memory_ontology.storage.GRAPH_FILE', graph_file), \
+                 patch('memory_ontology.storage.ONTOLOGY_DIR', Path(tmpdir)), \
                  patch('decay_engine.GRAPH_FILE', graph_file), \
                  patch('decay_engine.ONTOLOGY_DIR', Path(tmpdir)):
 
@@ -187,6 +191,8 @@ class TestDecayEngine:
 
             with patch('memory_ontology.GRAPH_FILE', graph_file), \
                  patch('memory_ontology.ONTOLOGY_DIR', Path(tmpdir)), \
+                 patch('memory_ontology.storage.GRAPH_FILE', graph_file), \
+                 patch('memory_ontology.storage.ONTOLOGY_DIR', Path(tmpdir)), \
                  patch('decay_engine.GRAPH_FILE', graph_file), \
                  patch('decay_engine.ONTOLOGY_DIR', Path(tmpdir)):
 
@@ -222,6 +228,8 @@ class TestDecayEngine:
 
             with patch('memory_ontology.GRAPH_FILE', graph_file), \
                  patch('memory_ontology.ONTOLOGY_DIR', Path(tmpdir)), \
+                 patch('memory_ontology.storage.GRAPH_FILE', graph_file), \
+                 patch('memory_ontology.storage.ONTOLOGY_DIR', Path(tmpdir)), \
                  patch('decay_engine.GRAPH_FILE', graph_file), \
                  patch('decay_engine.ONTOLOGY_DIR', Path(tmpdir)):
 
@@ -263,6 +271,8 @@ class TestDecayEngine:
 
             with patch('memory_ontology.GRAPH_FILE', graph_file), \
                  patch('memory_ontology.ONTOLOGY_DIR', Path(tmpdir)), \
+                 patch('memory_ontology.storage.GRAPH_FILE', graph_file), \
+                 patch('memory_ontology.storage.ONTOLOGY_DIR', Path(tmpdir)), \
                  patch('decay_engine.GRAPH_FILE', graph_file), \
                  patch('decay_engine.ONTOLOGY_DIR', Path(tmpdir)):
 
@@ -309,6 +319,8 @@ class TestDecayIntegration:
 
             with patch('memory_ontology.GRAPH_FILE', graph_file), \
                  patch('memory_ontology.ONTOLOGY_DIR', Path(tmpdir)), \
+                 patch('memory_ontology.storage.GRAPH_FILE', graph_file), \
+                 patch('memory_ontology.storage.ONTOLOGY_DIR', Path(tmpdir)), \
                  patch('decay_engine.GRAPH_FILE', graph_file), \
                  patch('decay_engine.ONTOLOGY_DIR', Path(tmpdir)):
 

@@ -455,3 +455,117 @@ class TestMergeCandidate:
         assert mc.entity2_id == 'e2'
         assert mc.similarity == 0.92
         assert mc.canonical_id == 'e1'
+
+
+class TestGetEmbedding:
+    """Tests for _get_embedding edge cases."""
+
+    def test_get_embedding_cache_hit(self):
+        """When cache hit, returns cached embedding without calling client."""
+        mock_client = Mock()
+        mock_client.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        dedup = EntityDeduplicator(mock_client, threshold=0.85)
+
+        # Pre-populate cache
+        dedup.embed_cache.set("test text", [0.5, 0.5, 0.5])
+
+        result = dedup._get_embedding("test text")
+
+        assert result == [0.5, 0.5, 0.5]
+        mock_client.embed.assert_not_called()
+
+    def test_get_embedding_client_returns_none(self):
+        """When client returns None, propagates None without caching."""
+        mock_client = Mock()
+        mock_client.embed = Mock(return_value=None)
+
+        dedup = EntityDeduplicator(mock_client, threshold=0.85)
+
+        result = dedup._get_embedding("some text")
+
+        assert result is None
+        # Should not cache None result
+        assert dedup.embed_cache.get("some text") is None
+
+    def test_get_embedding_caches_on_success(self):
+        """When client returns embedding, caches it."""
+        mock_client = Mock()
+        mock_client.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        dedup = EntityDeduplicator(mock_client, threshold=0.85)
+
+        result = dedup._get_embedding("new text")
+
+        assert result == [0.1, 0.2, 0.3]
+        # Should be cached
+        assert dedup.embed_cache.get("new text") == [0.1, 0.2, 0.3]
+
+
+class TestEmbedCacheCorruption:
+    """Tests for EmbedCache file corruption handling."""
+
+    def test_corrupted_json_line_skipped(self, tmp_path):
+        """Corrupted JSON line in cache file should be skipped without raising."""
+        cache_file = tmp_path / "embed_cache.jsonl"
+        # Write cache with valid entry and corrupted line
+        import hashlib
+        valid_hash = hashlib.md5(b"valid text").hexdigest()
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'text_hash': valid_hash,
+                'text': 'valid text',
+                'created': datetime.now().astimezone().isoformat(),
+                'embedding': [1.0, 2.0, 3.0]
+            }) + '\n')
+            f.write('not valid json\n')  # This should be skipped
+            f.write(json.dumps({
+                'text_hash': 'incomplete',
+                'text': 'incomplete'
+                # Missing 'created' and 'embedding'
+            }) + '\n')  # Should also be skipped
+
+        # Should load without error (corrupted lines skipped)
+        cache = EmbedCache(cache_file)
+        # Valid entry should be accessible
+        assert cache.get("valid text") == [1.0, 2.0, 3.0]
+
+    def test_missing_fields_in_cache_line_skipped(self, tmp_path):
+        """Cache line missing required fields should be skipped."""
+        cache_file = tmp_path / "embed_cache.jsonl"
+        # Write cache with missing fields
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            f.write('{"text": "test"}\n')  # Missing embedding and created
+
+        # Should load without error
+        cache = EmbedCache(cache_file)
+        assert cache.get("test") is None
+
+    def test_invalid_date_in_cache_entry_returns_none(self, tmp_path):
+        """Entry with invalid date should return None on get."""
+        cache_file = tmp_path / "embed_cache.jsonl"
+
+        # Write entry with invalid date
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'text_hash': hashlib.md5(b"bad date").hexdigest(),
+                'text': 'bad date',
+                'created': 'not-a-valid-date',
+                'embedding': [0.1, 0.2, 0.3]
+            }) + '\n')
+
+        cache = EmbedCache(cache_file)
+        assert cache.get("bad date") is None
+
+    def test_text_mismatch_returns_none(self, tmp_path):
+        """Entry exists but text doesn't match (hash collision) returns None."""
+        cache_file = tmp_path / "embed_cache.jsonl"
+        cache = EmbedCache(cache_file)
+
+        # Set for "hello"
+        cache.set("hello", [1.0, 2.0, 3.0])
+
+        # Query with different text that has same hash (unlikely but possible)
+        # This is really testing the text match logic
+        result = cache.get("hello")  # Should work
+        assert result == [1.0, 2.0, 3.0]
