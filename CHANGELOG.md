@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.4] - 2026-04-03
+
+### Changed
+
+- **.gitignore**: Added `agents/` and `docs/` to prevent local-only directories from being committed.
+- **Git history**: Removed `docs/` from git history for privacy. Local `docs/` folder preserved.
+
+### Security
+
+- **CSO Audit**: Completed first security audit with 3 findings (1 HIGH API key exposure, 1 HIGH prompt injection risk, 1 MEDIUM OAuth token storage).
+
 ## [1.0.3] - 2026-04-02
 
 ### Added
