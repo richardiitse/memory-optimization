@@ -170,3 +170,42 @@ def get_all_archived_entities() -> List[Dict]:
     """
     from .entity_ops import get_entities_by_type
     return get_entities_by_type('ArchivedMemory')
+
+
+def gate_entity(entity_id: str, source_type: str = 'user_input') -> Optional[Dict]:
+    """Gate an entity by ID.
+
+    Provides a simple API for external callers (consolidation, working_memory)
+    to gate entities before writing to KG.
+
+    Args:
+        entity_id: Entity ID to gate
+        source_type: Source type for scoring (e.g., 'kg_extractor', 'user_input')
+
+    Returns:
+        Dict with 'status', 'score', 'breakdown', 'reason' keys,
+        or None if entity not found
+    """
+    # Late import to avoid circular dependency
+    from write_time_gating import WriteTimeGating
+
+    entity = get_entity(entity_id, refresh_strength=False)
+    if not entity:
+        return None
+
+    gating = WriteTimeGating()
+    result = gating.gate(entity, source_type)
+
+    # Convert dataclass to dict for JSON serialization compatibility
+    return {
+        'status': result.status,
+        'score': result.score.total_score,
+        'breakdown': {
+            'source_reputation': result.score.breakdown.source_reputation,
+            'novelty': result.score.breakdown.novelty,
+            'reliability': result.score.breakdown.reliability,
+        },
+        'reason': result.reason,
+        'weights_used': result.score.weights_used,
+        'model': result.score.model,
+    }

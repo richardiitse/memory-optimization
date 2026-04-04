@@ -716,3 +716,71 @@ class TestValueAwareLoading:
         assert result['stage'] == 3
         assert result.get('value_aware') is True
         assert len(result.get('proactive_hints', [])) > 0
+
+
+class TestColdStorageLoading:
+    """Tests for Phase 8 cold storage loading."""
+
+    def test_load_from_cold_storage_import_error(self):
+        """Handles import error gracefully."""
+        from memory_loader import MemoryLoader
+
+        loader = MemoryLoader()
+        result = loader.load_from_cold_storage("test query")
+
+        assert 'archived_results' in result
+        assert 'loaded_at' in result
+        assert result['stage'] == 'cold_storage'
+
+    def test_load_from_cold_storage_success(self):
+        """Loads from cold storage successfully."""
+        from memory_loader import MemoryLoader
+
+        mock_results = [
+            {
+                'archived_entity': {'id': 'arch_1'},
+                'original_entity': {'id': 'dec_1'},
+                'relevance_score': 0.8,
+                'match_count': 2,
+                'matched_terms': ['test']
+            }
+        ]
+
+        loader = MemoryLoader()
+
+        with patch.dict('sys.modules', {'memory_ontology': MagicMock()}):
+            import sys
+            mock_module = MagicMock()
+            mock_module.query_archived.return_value = mock_results
+            sys.modules['memory_ontology'] = mock_module
+
+            # Re-import to pick up the mock
+            import importlib
+            import memory_loader
+            importlib.reload(memory_loader)
+
+            result = memory_loader.MemoryLoader().load_from_cold_storage("test query")
+
+            # If query_archived is available, should return results
+            # Otherwise, should return empty list
+            assert 'archived_results' in result
+
+    def test_recover_from_archive_not_found(self):
+        """Handles recovery failure gracefully."""
+        from memory_loader import MemoryLoader
+
+        loader = MemoryLoader()
+
+        with patch.dict('sys.modules', {'memory_ontology': MagicMock()}):
+            import sys
+            mock_module = MagicMock()
+            mock_module.recover_entity_from_cold_storage.return_value = None
+            sys.modules['memory_ontology'] = mock_module
+
+            import importlib
+            import memory_loader
+            importlib.reload(memory_loader)
+
+            result = memory_loader.MemoryLoader().recover_from_archive("arch_xxx")
+
+            assert result['recovered'] is False

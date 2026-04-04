@@ -585,6 +585,23 @@ class ConsolidationEngine:
             # 创建 SkillCard
             skillcard = self._create_entity('SkillCard', skillcard_props, entity_id=skillcard_id)
 
+            # Phase 8: Gate the consolidated entity
+            from memory_ontology import gate_entity
+            gate_result = gate_entity(skillcard_id, source_type='consolidation')
+            if gate_result:
+                if gate_result['status'] == 'ARCHIVE':
+                    # Archive low-value consolidated entities
+                    from memory_ontology import archive_entity_to_cold_storage
+                    archive_entity_to_cold_storage(
+                        skillcard_id,
+                        reason='low_significance',
+                        significance_score=gate_result['score'],
+                        strength=1.0
+                    )
+                elif gate_result['status'] == 'REJECT':
+                    # Log rejection but keep entity (consolidation is valuable)
+                    print(f"   [!] SkillCard {skillcard_id} gated REJECT (score={gate_result['score']:.3f})")
+
             # 标记原始实体已被合并
             self._mark_consolidated(entity1['id'], skillcard_id)
             self._mark_consolidated(entity2['id'], skillcard_id)

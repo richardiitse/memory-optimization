@@ -501,5 +501,121 @@ class TestWriteTimeGatingNovelty:
             assert result < 0.1  # Low novelty since very similar
 
 
+class TestGatingIntegration:
+    """Tests for gating integration functions (Phase 8)."""
+
+    def test_gate_entity_not_found(self):
+        """gate_entity returns None when entity not found."""
+        from memory_ontology.gating import gate_entity
+
+        with patch('memory_ontology.gating.get_entity', return_value=None):
+            result = gate_entity('nonexistent_id')
+            assert result is None
+
+    def test_gate_entity_success(self):
+        """gate_entity returns dict with gating result."""
+        from memory_ontology.gating import gate_entity
+
+        mock_entity = {
+            'id': 'test_entity',
+            'type': 'Decision',
+            'properties': {'title': 'Test'}
+        }
+
+        mock_gate_result = GateResult(
+            status="STORE",
+            score=SignificanceScore(
+                entity_id='test_entity',
+                total_score=0.65,
+                breakdown=SignificanceBreakdown(0.6, 0.7, 0.65),
+                weights_used=DEFAULT_WEIGHTS,
+                model='test',
+                created_at=datetime.now().astimezone().isoformat()
+            ),
+            reason="Test reason"
+        )
+
+        with patch('memory_ontology.gating.get_entity', return_value=mock_entity):
+            with patch('write_time_gating.WriteTimeGating') as MockGating:
+                mock_instance = Mock()
+                MockGating.return_value = mock_instance
+                mock_instance.gate.return_value = mock_gate_result
+
+                result = gate_entity('test_entity', 'user_input')
+
+        assert result is not None
+        assert result['status'] == 'STORE'
+        assert result['score'] == 0.65
+        assert 'breakdown' in result
+
+
+class TestQueryArchived:
+    """Tests for query_archived function (Phase 8)."""
+
+    def test_query_archived_empty_query(self):
+        """query_archived returns empty list for empty query."""
+        from memory_ontology.archived_memory import query_archived
+
+        result = query_archived('')
+        assert result == []
+
+    def test_query_archived_no_matches(self):
+        """query_archived returns empty when no matches."""
+        from memory_ontology.archived_memory import query_archived
+
+        with patch('memory_ontology.gating.get_all_archived_entities', return_value=[]):
+            result = query_archived('nonexistent search term')
+            assert result == []
+
+    def test_query_archived_with_matches(self):
+        """query_archived returns matching archived entities."""
+        from memory_ontology.archived_memory import query_archived
+
+        mock_archived = {
+            'id': 'arch_1',
+            'type': 'ArchivedMemory',
+            'properties': {
+                'original_id': 'dec_1',
+                'original_entity': {
+                    'id': 'dec_1',
+                    'type': 'Decision',
+                    'properties': {
+                        'title': 'Python Testing Decision',
+                        'tags': ['#decision', '#testing']
+                    }
+                },
+                'archived_reason': 'low_significance'
+            }
+        }
+
+        with patch('memory_ontology.archived_memory.get_all_archived_entities', return_value=[mock_archived]):
+            result = query_archived('Python')
+
+        assert len(result) == 1
+        assert result[0]['archived_entity']['id'] == 'arch_1'
+        assert result[0]['relevance_score'] > 0
+
+    def test_query_archived_limit(self):
+        """query_archived respects limit parameter."""
+        from memory_ontology.archived_memory import query_archived
+
+        mock_archived = [
+            {'id': f'arch_{i}', 'type': 'ArchivedMemory', 'properties': {
+                'original_id': f'dec_{i}',
+                'original_entity': {
+                    'id': f'dec_{i}',
+                    'type': 'Decision',
+                    'properties': {'title': f'Decision {i}'}
+                }
+            }}
+            for i in range(10)
+        ]
+
+        with patch('memory_ontology.archived_memory.get_all_archived_entities', return_value=mock_archived):
+            result = query_archived('Decision', limit=3)
+
+        assert len(result) == 3
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

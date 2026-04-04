@@ -79,6 +79,7 @@ from .gating import (
     get_default_gating_policy,
     get_all_active_entities,
     get_all_archived_entities,
+    gate_entity,
 )
 
 # Re-export from archived_memory module
@@ -86,6 +87,7 @@ from .archived_memory import (
     archive_entity_to_cold_storage,
     recover_entity_from_cold_storage,
     list_cold_storage_entities,
+    query_archived,
 )
 
 # Re-export from cli module
@@ -156,10 +158,12 @@ __all__ = [
     'get_default_gating_policy',
     'get_all_active_entities',
     'get_all_archived_entities',
+    'gate_entity',
     # archived_memory
     'archive_entity_to_cold_storage',
     'recover_entity_from_cold_storage',
     'list_cold_storage_entities',
+    'query_archived',
     # cli
     'print_entity',
     'main',
