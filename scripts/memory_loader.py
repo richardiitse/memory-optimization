@@ -364,6 +364,68 @@ class MemoryLoader:
             'loaded_at': datetime.now(timezone.utc).isoformat(),
         }
 
+    # --- Cold Storage Loading (Phase 8) ---
+
+    def load_from_cold_storage(self, query: str, limit: int = 10) -> Dict:
+        """Search and load relevant entities from cold storage.
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results
+
+        Returns:
+            Dict with 'archived_results', 'loaded_at', 'stage'
+        """
+        try:
+            from memory_ontology import query_archived
+        except ImportError:
+            return {
+                'archived_results': [],
+                'error': 'query_archived not available',
+                'loaded_at': datetime.now(timezone.utc).isoformat(),
+                'stage': 'cold_storage'
+            }
+
+        results = query_archived(query, limit=limit)
+
+        return {
+            'archived_results': results,
+            'loaded_at': datetime.now(timezone.utc).isoformat(),
+            'stage': 'cold_storage',
+        }
+
+    def recover_from_archive(self, archived_memory_id: str) -> Dict:
+        """Recover a specific entity from cold storage.
+
+        Args:
+            archived_memory_id: ArchivedMemory entity ID
+
+        Returns:
+            Dict with recovered entity info
+        """
+        try:
+            from memory_ontology import recover_entity_from_cold_storage
+        except ImportError:
+            return {
+                'recovered': False,
+                'error': 'recover_entity_from_cold_storage not available',
+                'loaded_at': datetime.now(timezone.utc).isoformat(),
+            }
+
+        entity = recover_entity_from_cold_storage(archived_memory_id)
+        if entity:
+            return {
+                'recovered': True,
+                'entity': entity,
+                'loaded_at': datetime.now(timezone.utc).isoformat(),
+            }
+        else:
+            return {
+                'recovered': False,
+                'error': 'Entity not found or recovery failed',
+                'loaded_at': datetime.now(timezone.utc).isoformat(),
+            }
+
     def get_stats(self) -> Dict:
         """Get memory statistics.
 

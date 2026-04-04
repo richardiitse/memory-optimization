@@ -170,3 +170,58 @@ def list_cold_storage_entities(reason: Optional[str] = None) -> List[Dict]:
         return [a for a in all_archived if a['properties'].get('archived_reason') == reason]
 
     return all_archived
+
+
+def query_archived(query: str, limit: int = 10) -> List[Dict]:
+    """Search archived entities by text query.
+
+    Performs simple keyword matching on entity titles and content.
+    Used by memory_loader to search cold storage.
+
+    Args:
+        query: Search query string
+        limit: Maximum number of results to return
+
+    Returns:
+        List of matching archived entities with relevance score
+    """
+    if not query or not query.strip():
+        return []
+
+    all_archived = get_all_archived_entities()
+    query_lower = query.lower()
+    query_terms = query_lower.split()
+
+    results = []
+    for archived in all_archived:
+        props = archived.get('properties', {})
+        original = props.get('original_entity', {})
+        orig_props = original.get('properties', {}) if original else {}
+
+        # Get searchable text
+        title = orig_props.get('title', '').lower()
+        summary = orig_props.get('summary', '').lower()
+        content = orig_props.get('content', '').lower() if isinstance(
+            orig_props.get('content'), str) else ''
+        tags = ' '.join(props.get('tags', [])).lower()
+
+        searchable = f"{title} {summary} {content} {tags}"
+
+        # Count matching terms
+        matches = sum(1 for term in query_terms if term in searchable)
+
+        if matches > 0:
+            # Relevance score based on match ratio
+            score = matches / len(query_terms)
+            results.append({
+                'archived_entity': archived,
+                'original_entity': original,
+                'relevance_score': score,
+                'match_count': matches,
+                'matched_terms': [t for t in query_terms if t in searchable]
+            })
+
+    # Sort by relevance score descending
+    results.sort(key=lambda x: x['relevance_score'], reverse=True)
+
+    return results[:limit]

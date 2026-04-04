@@ -309,10 +309,11 @@ def main():
 
     elif args.command == 'archived':
         # Phase 8: 归档实体管理
-        from archived_memory_store import ArchivedMemoryStore
-        store = ArchivedMemoryStore()
+        from .archived_memory import list_cold_storage_entities, query_archived, recover_entity_from_cold_storage
         if args.list_archived:
-            archived = store.list_archived(reason=args.reason, limit=args.limit)
+            archived = list_cold_storage_entities(reason=args.reason)
+            if args.limit:
+                archived = archived[:args.limit]
             print(f"\n{'='*50}")
             print(f"Archived Entities: {len(archived)}")
             print(f"{'='*50}")
