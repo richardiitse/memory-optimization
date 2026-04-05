@@ -95,6 +95,61 @@ class TestEmbedCache:
         finally:
             cache_file.unlink(missing_ok=True)
 
+    def test_cache_file_not_exists(self):
+        """Test cache loading when file doesn't exist."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_file = Path(tmpdir) / "nonexistent.jsonl"
+            cache = EmbedCache(cache_file)
+            # Should not raise, just return empty cache
+            assert cache.get("any text") is None
+
+    def test_cache_load_with_invalid_json(self):
+        """Test cache loading skips invalid JSON lines."""
+        import tempfile
+        import hashlib
+        from datetime import datetime
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jsonl', mode='w') as f:
+            # Compute correct hash for "test"
+            correct_hash = hashlib.md5("test".encode('utf-8')).hexdigest()
+            # Use a recent timestamp so it doesn't expire
+            recent_time = datetime.now().astimezone().isoformat()
+            f.write(f'{{"text_hash": "{correct_hash}", "text": "test", "created": "{recent_time}", "embedding": [0.1, 0.2]}}\n')
+            f.write('invalid json line\n')  # Should be skipped
+            f.write('{"text_hash": "xyz", "text": "no_embedding", "created": "2026-01-01T00:00:00+00:00"}\n')  # Missing embedding, should be skipped
+            cache_file = Path(f.name)
+        try:
+            cache = EmbedCache(cache_file)
+            # First entry should be loaded
+            result = cache.get("test")
+            assert result == [0.1, 0.2]
+        finally:
+            cache_file.unlink(missing_ok=True)
+
+    def test_cache_get_empty_text(self):
+        """Test cache.get returns None for empty text."""
+        cache = EmbedCache()
+        result = cache.get("")
+        assert result is None
+
+    def test_cache_expired_ttl(self):
+        """Test cache returns None for expired TTL."""
+        import tempfile
+        from datetime import datetime, timedelta
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jsonl') as f:
+            cache_file = Path(f.name)
+        try:
+            cache = EmbedCache(cache_file)
+            # Manually add an expired entry
+            expired_time = (datetime.now().astimezone() - timedelta(hours=25)).isoformat()
+            cache._cache['hash123'] = ('old text', expired_time, [0.1, 0.2, 0.3])
+            cache.TTL_HOURS = 24  # 24 hour TTL
+
+            result = cache.get("old text")
+            assert result is None
+        finally:
+            cache_file.unlink(missing_ok=True)
+
 
 class TestSignificanceBreakdown:
     """Tests for SignificanceBreakdown dataclass."""

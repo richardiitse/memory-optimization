@@ -258,6 +258,47 @@ python3 scripts/memory_dashboard.py json          # JSON output (for other tools
 
 ---
 
+### write_time_gating.py
+
+Phase 8: Write-time gating evaluation — filters low-value content before entering KG.
+
+**Usage:**
+```bash
+python3 scripts/write_time_gating.py gate --entity-id <id>
+python3 scripts/write_time_gating.py batch --dry-run
+python3 scripts/write_time_gating.py stats
+```
+
+**Gating Decisions:**
+- `STORE`: score >= 0.5 (threshold) → directly to KG
+- `ARCHIVE`: score 0.3-0.5 → to cold storage
+- `REJECT`: score < 0.3 → discarded
+
+**Score Components:**
+- source_reliability (40%): Source accuracy history
+- novelty (35%): KG similarity check
+- reliability (25%): Entity confidence
+
+---
+
+### archived_memory_store.py
+
+Phase 8: Cold storage for archived entities.
+
+**Usage:**
+```bash
+python3 scripts/archived_memory_store.py query --text "keyword"
+python3 scripts/archived_memory_store.py recover --entity-id <id>
+python3 scripts/archived_memory_store.py stats
+```
+
+**Features:**
+- Text search in archived entities
+- Recovery to active KG
+- Storage statistics
+
+---
+
 ## Installation
 
 These scripts are bundled with the memory-optimization skill. They work in the OpenClaw workspace environment.

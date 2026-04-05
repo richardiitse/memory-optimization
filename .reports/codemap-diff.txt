@@ -1,29 +1,38 @@
 # Codemap Diff Report
-Generated: 2026-04-02
+Generated: 2026-04-05
 
 ## Summary
-- **Action:** Phase 6 Value-Aware Retrieval codemap update
-- **Files modified:** 2 codemap files
+- **Action:** Codemap expansion - added data.md, dependencies.md
+- **Files modified:** 3 codemap files
 
 ## Changes
 
 | File | Change |
 |------|--------|
-| architecture.md | Added Phase 6 section, updated Phase status |
-| scripts.md | Added retrieve CLI command, value_score.py, retrieval.py |
+| architecture.md | Added freshness header |
+| data.md | NEW - Data model documentation |
+| dependencies.md | NEW - External dependencies |
 
 ## Key Changes Since Last Codemap
-- Phase 6 Value-Aware Retrieval implemented:
-  - value_score.py: 5-component weighted scoring
-  - retrieval.py: ValueAwareRetriever class
-  - CLI retrieve command added
-- memory_ontology package now 12 modules (added value_score, retrieval)
-- Tests: 267 passed
+- Added 23 new tests for llm_client.py (47% → 95% coverage)
+- Bug fix in preference_engine.py (judge_task_similarity missing else branch)
+- Total tests: 385 passed
 
-## Phase Status
-- Phase 1-5, 7-8: ✅ Done
-- Phase 6a (Value-Aware Retrieval): ✅ Done
-- Phase 6b (Memory Loader Integration): Pending
+## Codemap Status
+| File | Status |
+|------|--------|
+| architecture.md | ✓ Current |
+| data.md | ✓ New (2026-04-05) |
+| dependencies.md | ✓ New (2026-04-05) |
+
+## Coverage Status
+| File | Coverage |
+|------|----------|
+| llm_client.py | 95% |
+| storage.py | 93% |
+| entity_ops.py | 68% |
+| archived_memory_store.py | 41% |
+| TOTAL | 59% |
 
 ## Staleness Warnings
-None - updated 2026-04-02
+None - all codemaps updated 2026-04-05
