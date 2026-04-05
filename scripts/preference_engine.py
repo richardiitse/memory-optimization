@@ -147,15 +147,18 @@ def judge_task_similarity(task_a: str, task_b: str, client: LLMClient,
         if json_start >= 0 and json_end > json_start:
             json_str = response[json_start:json_end]
             data = json.loads(json_str)
+        else:
+            # 尝试直接解析整个响应
+            data = json.loads(response)
 
-            is_same = bool(data.get('is_same', False))
-            reasoning = data.get('reasoning', '')
+        is_same = bool(data.get('is_same', False))
+        reasoning = data.get('reasoning', '')
 
-            # 写入缓存
-            if use_cache:
-                _llm_cache.set(task_a, task_b, json.dumps(data))
+        # 写入缓存
+        if use_cache:
+            _llm_cache.set(task_a, task_b, json.dumps(data))
 
-            return is_same, reasoning
+        return is_same, reasoning
     except (json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Failed to parse LLM response: {e}")
         return False, f"Parse error: {e}"

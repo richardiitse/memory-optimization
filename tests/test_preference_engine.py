@@ -134,6 +134,121 @@ class TestJudgeTaskSimilarity:
         assert is_same is True
         assert "[Cache]" in reasoning
 
+    def test_llm_call_fails_returns_false(self):
+        """Test LLM call failure returns False"""
+        from preference_engine import judge_task_similarity
+
+        mock_client = MagicMock()
+        mock_client.call.return_value = None  # Simulate LLM failure
+
+        is_same, reasoning = judge_task_similarity(
+            "task_a",
+            "task_b",
+            mock_client,
+            use_cache=False
+        )
+
+        assert is_same is False
+        assert "failed" in reasoning.lower()
+
+    def test_json_parse_error_returns_false(self):
+        """Test JSON parse error returns False"""
+        from preference_engine import judge_task_similarity
+
+        mock_client = MagicMock()
+        mock_client.call.return_value = "not valid json {"
+
+        is_same, reasoning = judge_task_similarity(
+            "task_a",
+            "task_b",
+            mock_client,
+            use_cache=False
+        )
+
+        assert is_same is False
+        assert "parse" in reasoning.lower()
+
+
+class TestPreferenceEngineMethods:
+    """Tests for PreferenceEngine internal methods"""
+
+    def test_infer_preference_returns_none_when_no_similar(self):
+        """Test _infer_preference returns None when similar list is empty"""
+        from preference_engine import PreferenceEngine
+
+        engine = PreferenceEngine()
+
+        entity = {
+            'id': 'test_entity',
+            'type': 'Decision',
+            'properties': {'title': 'Test Decision'}
+        }
+
+        result = engine._infer_preference(entity, [])
+        assert result is None
+
+    def test_infer_preference_creates_preference_dict(self):
+        """Test _infer_preference creates proper preference dict"""
+        from preference_engine import PreferenceEngine
+
+        engine = PreferenceEngine()
+
+        entity = {
+            'id': 'test_entity',
+            'type': 'Decision',
+            'properties': {'title': '使用 VSCode'}
+        }
+
+        similar = [
+            {'entity': {'id': 'other', 'type': 'Decision', 'properties': {'title': '使用 PyCharm'}}}
+        ]
+
+        result = engine._infer_preference(entity, similar)
+
+        assert result is not None
+        assert 'title' in result
+        assert 'pattern' in result
+        assert 'preference_type' in result
+        assert 'confidence' in result
+        assert result['confidence'] == 0.6  # 0.5 + 0.1 * 1
+
+    def test_find_similar_entities_empty_title(self):
+        """Test _find_similar_entities returns empty when title is empty"""
+        from preference_engine import PreferenceEngine
+
+        engine = PreferenceEngine()
+
+        entity = {
+            'id': 'test_entity',
+            'type': 'Decision',
+            'properties': {}
+        }
+
+        all_entities = {
+            'test_entity': entity
+        }
+
+        result = engine._find_similar_entities(entity, all_entities)
+        assert result == []
+
+    def test_load_entities_caches(self):
+        """Test _load_entities caches entities"""
+        from preference_engine import PreferenceEngine
+
+        engine = PreferenceEngine()
+
+        mock_entities = {
+            'entity1': {'id': 'entity1', 'type': 'Decision', 'properties': {'title': 'Test'}}
+        }
+
+        with patch('memory_ontology.load_all_entities', return_value=mock_entities):
+            # First call loads
+            result1 = engine._load_entities()
+            # Second call should return cached
+            result2 = engine._load_entities()
+
+            assert result1 == result2
+
 
 class TestPreferenceEngine:
     """Tests for PreferenceEngine class"""

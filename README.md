@@ -71,6 +71,7 @@ SkillCard is a high-value knowledge card distilled from entities (Decision, Less
 | Phase 5 | Working Memory (context compression) | ✅ Done |
 | Phase 6 | Memory Loader (proactive recovery) | ✅ Done |
 | Phase 7 | Memory Dashboard (health visualization) | ✅ Done |
+| Phase 8 | Write-Time Gating + Cold Storage | ✅ Done |
 
 ## Features
 
