@@ -262,24 +262,36 @@ Every session should read in this order:
 **Setup**: `git clone https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup`
 
 **Available Skills**:
-- `/browse` - Web browsing with Playwright
 - `/office-hours` - Office hours management
 - `/plan-ceo-review` - CEO-level plan review
 - `/plan-eng-review` - Engineering plan review
 - `/plan-design-review` - Design plan review
 - `/design-consultation` - Design consultation
+- `/design-shotgun` - Rapid design exploration
+- `/design-html` - HTML design generation
 - `/review` - Code review
 - `/ship` - Ship/release workflow
+- `/land-and-deploy` - Land and deploy
+- `/canary` - Canary deployment
+- `/benchmark` - Performance benchmarking
+- `/browse` - Web browsing with Playwright
+- `/connect-chrome` - Chrome browser connection
 - `/qa` - QA with fixes
 - `/qa-only` - QA without fixes
 - `/design-review` - Design review
 - `/setup-browser-cookies` - Browser cookie setup
+- `/setup-deploy` - Deploy setup
 - `/retro` - Retrospective
 - `/investigate` - Investigation
 - `/document-release` - Document release
 - `/codex` - Codex integration
+- `/cso` - Chief Strategy Officer
+- `/autoplan` - Auto-planning
+- `/plan-devex-review` - Developer experience plan review
+- `/devex-review` - Developer experience review
 - `/careful` - Careful mode
 - `/freeze` - Freeze state
 - `/guard` - Guard mode
 - `/unfreeze` - Unfreeze state
 - `/gstack-upgrade` - Upgrade gstack
+- `/learn` - Learning mode
