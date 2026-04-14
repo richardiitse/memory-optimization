@@ -16,7 +16,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from entity_dedup import (
-    _cosine_similarity,
     _entity_text,
     EmbedCache,
     EntityDeduplicator,
@@ -24,6 +23,7 @@ from entity_dedup import (
     DedupStats,
     DEFAULT_SIMILARITY_THRESHOLD,
 )
+from utils import cosine_similarity
 
 
 class TestCosineSimilarity:
@@ -31,28 +31,28 @@ class TestCosineSimilarity:
 
     def test_identical_vectors(self):
         v = [1.0, 2.0, 3.0]
-        assert abs(_cosine_similarity(v, v) - 1.0) < 1e-9
+        assert abs(cosine_similarity(v, v) - 1.0) < 1e-9
 
     def test_orthogonal_vectors(self):
         v1 = [1.0, 0.0, 0.0]
         v2 = [0.0, 1.0, 0.0]
-        assert abs(_cosine_similarity(v1, v2)) < 1e-9
+        assert abs(cosine_similarity(v1, v2)) < 1e-9
 
     def test_opposite_vectors(self):
         v1 = [1.0, 0.0, 0.0]
         v2 = [-1.0, 0.0, 0.0]
-        assert abs(_cosine_similarity(v1, v2) + 1.0) < 1e-9
+        assert abs(cosine_similarity(v1, v2) + 1.0) < 1e-9
 
     def test_partial_similarity(self):
         v1 = [1.0, 0.0, 0.0]
         v2 = [1.0, 1.0, 0.0]
-        sim = _cosine_similarity(v1, v2)
+        sim = cosine_similarity(v1, v2)
         assert 0.5 < sim < 1.0
 
     def test_zero_vector(self):
         v1 = [0.0, 0.0, 0.0]
         v2 = [1.0, 2.0, 3.0]
-        assert _cosine_similarity(v1, v2) == 0.0
+        assert cosine_similarity(v1, v2) == 0.0
 
 
 class TestEntityText:
