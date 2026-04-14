@@ -212,3 +212,19 @@ python3 scripts/entity_dedup.py stats
 **Priority**: P2
 
 **Depends on**: Phase 1b (KG Schema 增强)
+
+---
+
+## P4 - Embedding 批量优化
+
+**What**: LongMemEval qa_reader 的 embedding 调用改为批量接口
+
+**Why**: 当前逐条调用 `client.embed()`，每个 entity 一次 API 请求。500 questions × 平均 20 entities = ~10,000 次 embedding 调用，串行执行耗时过长。Phase 4 可引入 batch embed 接口，单次请求处理多个文本。
+
+**Status**: 🔲 TODO
+
+**Effort**: S
+
+**Priority**: P4
+
+**Depends on**: Phase 1 Oracle Lane MVP 完成
