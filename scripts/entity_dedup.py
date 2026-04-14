@@ -14,7 +14,6 @@ Usage:
 
 import json
 import sys
-import math
 import hashlib
 import argparse
 from pathlib import Path
@@ -30,21 +29,12 @@ EMBED_CACHE_FILE = ONTOLOGY_DIR / "embed_cache.jsonl"
 
 sys.path.insert(0, str(SCRIPT_DIR))
 from utils.llm_client import LLMClient
+from utils import cosine_similarity
 from memory_ontology import load_all_entities, _write_to_graph
 
 
 # Similarity threshold for deduplication
 DEFAULT_SIMILARITY_THRESHOLD = 0.85
-
-
-def _cosine_similarity(a: List[float], b: List[float]) -> float:
-    """Compute cosine similarity between two vectors."""
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(x * x for x in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
 
 
 def _entity_text(entity: Dict) -> str:
@@ -256,7 +246,7 @@ class EntityDeduplicator:
                         continue
                     emb2 = embeddings[eid2]
 
-                    sim = _cosine_similarity(emb1, emb2)
+                    sim = cosine_similarity(emb1, emb2)
                     if sim >= self.threshold:
                         # Keep the one with earliest timestamp as canonical
                         ts1 = self._get_primary_timestamp(ent1)
