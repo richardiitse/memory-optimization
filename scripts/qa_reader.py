@@ -13,9 +13,11 @@ Usage:
 
 import json
 import logging
+import math
 import sys
 import time
 import argparse
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
@@ -45,9 +47,17 @@ class RetrievalResult:
 class Retriever:
     """Embedding-based retriever with question-type-aware strategies."""
 
-    def __init__(self, client: LLMClient, top_k: int = 20):
+    def __init__(
+        self,
+        client: LLMClient,
+        top_k: int = 20,
+        alpha: float = 1.0,
+        tau: float = 30.0,
+    ):
         self.client = client
         self.top_k = top_k
+        self.alpha = alpha  # semantic weight (1-alpha = temporal weight)
+        self.tau = tau      # temporal decay constant in days
 
     def retrieve(
         self,
@@ -56,6 +66,10 @@ class Retriever:
         index: EmbeddingIndex,
     ) -> List[RetrievalResult]:
         """Retrieve top-k entities for a question.
+
+        When alpha < 1.0, uses hybrid scoring:
+          combined = alpha * semantic_sim + (1-alpha) * temporal_proximity
+        When alpha = 1.0, pure semantic similarity (original behavior).
 
         Applies question-type-specific post-processing:
         - temporal-reasoning: Sort results by session_date after retrieval
@@ -76,7 +90,19 @@ class Retriever:
             if not emb or all(v == 0.0 for v in emb):
                 continue
             sim = cosine_similarity(query_emb, emb)
-            scored.append((eid, sim))
+
+            # Hybrid scoring: add temporal proximity if alpha < 1.0
+            if self.alpha < 1.0 and qi.question_date_iso:
+                entity = index.entity_map.get(eid)
+                entity_date = entity.session_date if entity else ""
+                t_prox = self._temporal_proximity(
+                    entity_date, qi.question_date_iso, self.tau,
+                )
+                combined = self.alpha * sim + (1.0 - self.alpha) * t_prox
+            else:
+                combined = sim
+
+            scored.append((eid, combined))
 
         # Sort by score, take top_k
         scored.sort(key=lambda x: -x[1])
@@ -99,6 +125,28 @@ class Retriever:
                 ))
 
         return results
+
+    @staticmethod
+    def _temporal_proximity(
+        entity_date: str,
+        question_date: str,
+        tau: float,
+    ) -> float:
+        """Compute temporal proximity score between entity and question dates.
+
+        Uses exponential decay: exp(-|days_diff| / tau).
+        Returns 0.0 on any parse failure.
+        """
+        if not entity_date or not question_date:
+            return 0.0
+        try:
+            # Parse ISO format dates (handle various formats)
+            ed = datetime.fromisoformat(entity_date)
+            qd = datetime.fromisoformat(question_date)
+            days_diff = abs((ed - qd).total_seconds()) / 86400.0
+            return math.exp(-days_diff / tau)
+        except (ValueError, TypeError):
+            return 0.0
 
     def _rerank_temporal(
         self,
@@ -297,7 +345,7 @@ class Reader:
             {"role": "user", "content": prompt},
         ]
 
-        response = self.client.call(messages, temperature=0.1)
+        response = self.client.call(messages, temperature=0.5)
 
         elapsed_ms = (time.time() - start) * 1000
 

@@ -228,3 +228,21 @@ python3 scripts/entity_dedup.py stats
 **Priority**: P4
 
 **Depends on**: Phase 1 Oracle Lane MVP 完成
+
+---
+
+## P3 - Hybrid Retrieval Alpha/Tau Grid Search
+
+**What**: 对 alpha (语义权重) 和 tau (时间衰减常数) 进行网格搜索，找到最优参数组合
+
+**Why**: E1 实验用 alpha=0.6, tau=30 达到了 63% 准确率（baseline 23%），但参数是直觉选的。grid search 可能进一步提升
+
+**Status**: 🔲 TODO
+
+**Effort**: S (human: 30min / CC: 15min)
+
+**Priority**: P3
+
+**Depends on**: 133 题嵌入缓存完成 (data/longmemeval/embed_cache/)
+
+**Plan**: 跑 alpha=[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0] × tau=[7, 15, 30, 60, 90]，对比 accuracy

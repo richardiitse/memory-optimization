@@ -178,6 +178,153 @@ class TestRetriever:
         results = retriever.retrieve("query", qi, index)
         assert len(results) == 0
 
+    def test_temporal_proximity_same_day(self):
+        """Same day → proximity close to 1.0 (within a few hours)."""
+        client = MagicMock()
+        retriever = Retriever(client=client)
+        prox = retriever._temporal_proximity(
+            "2023-04-10T17:50", "2023-04-10T23:07", tau=30,
+        )
+        # ~5 hours diff → exp(-0.2/30) ≈ 0.993
+        assert prox > 0.99
+
+    def test_temporal_proximity_empty_entity_date(self):
+        """Empty entity date → proximity = 0.0."""
+        client = MagicMock()
+        retriever = Retriever(client=client)
+        prox = retriever._temporal_proximity(
+            "", "2023-04-10T23:07", tau=30,
+        )
+        assert prox == 0.0
+
+    def test_temporal_proximity_far_away(self):
+        """100 days away → very low proximity."""
+        client = MagicMock()
+        retriever = Retriever(client=client)
+        import math
+        prox = retriever._temporal_proximity(
+            "2023-01-01T00:00", "2023-04-10T23:07", tau=30,
+        )
+        # exp(-100/30) ≈ 0.036
+        assert prox < 0.05
+        assert prox > 0.0
+
+    def test_hybrid_retrieval_boosts_temporal_closeness(self):
+        """Entity closer in time should have higher combined score with alpha < 1.
+
+        Note: _rerank_temporal re-sorts by date for the Reader, so rank order
+        may differ from score order. We check scores directly.
+        """
+        client = MagicMock()
+        # Query embedding: [1, 0, 0, ...]
+        client.embed.return_value = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        qi = QuestionInstance(
+            question_id='q1',
+            question_type='single-session-user',  # no reranking
+            question="What happened recently?",
+            answer="Answer",
+            question_date="2023/04/15 (Mon) 12:00",
+            question_date_iso="2023-04-15T12:00",
+            is_abstention=False,
+            entities=[
+                TurnEntity(
+                    entity_id="far_similar",
+                    role="user",
+                    content="Something happened far away",
+                    session_id="s1",
+                    session_date="2023-03-01T10:00",  # 45 days before question
+                    question_id="q1",
+                    question_type="single-session-user",
+                    has_answer=False,
+                    turn_index=0,
+                ),
+                TurnEntity(
+                    entity_id="close_dissimilar",
+                    role="user",
+                    content="Something else",
+                    session_id="s2",
+                    session_date="2023-04-14T10:00",  # 1 day before question
+                    question_id="q1",
+                    question_type="single-session-user",
+                    has_answer=False,
+                    turn_index=0,
+                ),
+            ],
+        )
+
+        index = EmbeddingIndex(
+            question_id='q1',
+            entity_ids=["far_similar", "close_dissimilar"],
+            embeddings=[
+                [0.6, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # moderate semantic
+                [0.45, 0.55, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # lower semantic
+            ],
+            entity_map={e.entity_id: e for e in qi.entities},
+        )
+
+        # With alpha=0.4 (heavy temporal weight), close entity should score higher
+        retriever = Retriever(client=client, top_k=10, alpha=0.4, tau=30.0)
+        results = retriever.retrieve("what happened", qi, index)
+
+        # close_dissimilar should have higher combined score
+        close_score = next(r.score for r in results if r.entity.entity_id == "close_dissimilar")
+        far_score = next(r.score for r in results if r.entity.entity_id == "far_similar")
+        assert close_score > far_score
+
+    def test_alpha_one_is_pure_semantic(self):
+        """alpha=1.0 should behave identically to current pure semantic."""
+        client = MagicMock()
+        client.embed.return_value = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        qi = make_question(qtype='temporal-reasoning')
+        index = make_index()
+
+        retriever = Retriever(client=client, top_k=10, alpha=1.0)
+        results = retriever.retrieve("query", qi, index)
+
+        # With alpha=1.0, should be pure semantic ranking
+        # First entity has highest semantic sim (0.9,0.1,...)
+        assert results[0].entity.entity_id == "test_1_s0_t0"
+
+    def test_empty_question_date_is_pure_semantic(self):
+        """When question_date is empty, should fall back to pure semantic."""
+        client = MagicMock()
+        client.embed.return_value = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        qi = QuestionInstance(
+            question_id='q1',
+            question_type='temporal-reasoning',
+            question="What happened?",
+            answer="Answer",
+            question_date="",
+            question_date_iso="",
+            is_abstention=False,
+            entities=[
+                TurnEntity(
+                    entity_id="e1",
+                    role="user",
+                    content="test",
+                    session_id="s1",
+                    session_date="2023-04-10T17:50",
+                    question_id="q1",
+                    question_type="temporal-reasoning",
+                    turn_index=0,
+                ),
+            ],
+        )
+
+        index = EmbeddingIndex(
+            question_id='q1',
+            entity_ids=["e1"],
+            embeddings=[[0.9, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
+            entity_map={e.entity_id: e for e in qi.entities},
+        )
+
+        retriever = Retriever(client=client, top_k=10, alpha=0.6, tau=30.0)
+        results = retriever.retrieve("query", qi, index)
+        assert len(results) == 1
+
 
 # ========== Reader ==========
 

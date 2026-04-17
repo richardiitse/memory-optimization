@@ -17,7 +17,7 @@ import time
 import argparse
 from dataclasses import asdict
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 SCRIPT_DIR = Path(__file__).parent
@@ -96,9 +96,12 @@ class EvalPipeline:
         top_k: int = 20,
         abstention_threshold: float = 0.3,
         max_context_chars: int = 8000,
+        cache_dir: Optional[str] = None,
+        alpha: float = 1.0,
+        tau: float = 30.0,
     ):
-        self.adapter = LongMemEvalAdapter(llm_client=embed_client)
-        self.retriever = Retriever(client=embed_client, top_k=top_k)
+        self.adapter = LongMemEvalAdapter(llm_client=embed_client, cache_dir=cache_dir)
+        self.retriever = Retriever(client=embed_client, top_k=top_k, alpha=alpha, tau=tau)
         self.reader = Reader(
             client=reader_client,
             abstention_threshold=abstention_threshold,
@@ -246,6 +249,18 @@ def main():
         '--base-url', '-b', default=None,
         help='API base URL for reader (default: Ollama localhost)'
     )
+    parser.add_argument(
+        '--cache-dir', default=None,
+        help='Directory for embedding cache files (default: no cache)'
+    )
+    parser.add_argument(
+        '--alpha', type=float, default=1.0,
+        help='Semantic weight for hybrid retrieval (0-1, default: 1.0 = pure semantic)'
+    )
+    parser.add_argument(
+        '--tau', type=float, default=30.0,
+        help='Temporal decay constant in days (default: 30)'
+    )
 
     args = parser.parse_args()
 
@@ -280,11 +295,15 @@ def main():
     # Embedding client: uses Ollama qwen3-embedding (local, no auth)
     embed_client = LLMClient()
 
-    # Reader client: uses Ollama gemma4:26b (local, no auth)
+    # Reader client: uses OPENAI_BASE_URL if set, otherwise MiniMax API
+    reader_base_url = args.base_url or os.environ.get('OPENAI_BASE_URL') or os.environ.get('READER_BASE_URL', 'https://api.minimaxi.com/anthropic/v1')
+    reader_model = args.reader_model or os.environ.get('OPENAI_MODEL') or os.environ.get('READER_MODEL', 'MiniMax-M2.7-highspeed')
+    reader_api_key = args.api_key or os.environ.get('MINIMAX_API_KEY') or os.environ.get('OPENAI_API_KEY', '')
+
     reader_client = LLMClient(
-        model=args.reader_model or os.environ.get('READER_MODEL', 'gemma4:26b'),
-        api_key=args.api_key,
-        base_url=args.base_url or os.environ.get('READER_BASE_URL', 'http://localhost:11434/api'),
+        model=reader_model,
+        api_key=reader_api_key,
+        base_url=reader_base_url,
     )
     print(f"  Embed model: {embed_client.embed_model} @ {embed_client.embed_base_url}")
     print(f"  Reader model: {reader_client.model} @ {reader_client.base_url}")
@@ -294,6 +313,9 @@ def main():
         reader_client=reader_client,
         top_k=args.top_k,
         abstention_threshold=args.abstention_threshold,
+        cache_dir=args.cache_dir,
+        alpha=args.alpha,
+        tau=args.tau,
     )
 
     start = time.time()
