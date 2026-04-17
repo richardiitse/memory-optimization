@@ -100,8 +100,13 @@ QUESTION_TYPES = [
 class LongMemEvalAdapter:
     """Parse LongMemEval oracle data into entity structures."""
 
-    def __init__(self, llm_client: Optional[LLMClient] = None):
+    def __init__(
+        self,
+        llm_client: Optional[LLMClient] = None,
+        cache_dir: Optional[str] = None,
+    ):
         self.client = llm_client
+        self.cache_dir = cache_dir
 
     def parse_file(self, filepath: str) -> List[QuestionInstance]:
         """Parse a LongMemEval JSON file into QuestionInstance list."""
@@ -183,7 +188,15 @@ class LongMemEvalAdapter:
         Uses LLMClient.embed() for per-entity embedding calls.
         Failed embeddings get a zero vector derived from the first
         successful embedding dimension.
+
+        When cache_dir is set, checks for cached embeddings first.
         """
+        # Check cache
+        if self.cache_dir:
+            cache_path = Path(self.cache_dir) / f"{qi.question_id}.json"
+            if cache_path.exists():
+                return self._load_cache(cache_path)
+
         if not self.client:
             raise RuntimeError("LLMClient required for embedding index build")
 
@@ -206,12 +219,72 @@ class LongMemEvalAdapter:
                 embeddings.append([0.0] * fallback_dim)
             entity_map[entity.entity_id] = entity
 
-        return EmbeddingIndex(
+        index = EmbeddingIndex(
             question_id=qi.question_id,
             entity_ids=entity_ids,
             embeddings=embeddings,
             entity_map=entity_map,
         )
+
+        # Save cache
+        if self.cache_dir:
+            cache_path = Path(self.cache_dir) / f"{qi.question_id}.json"
+            self._save_cache(cache_path, index)
+
+        return index
+
+    def _load_cache(self, cache_path: Path) -> EmbeddingIndex:
+        """Load EmbeddingIndex from cached JSON file."""
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        entity_map = {}
+        for eid, edata in data['entity_map'].items():
+            entity_map[eid] = TurnEntity(
+                entity_id=edata['entity_id'],
+                role=edata['role'],
+                content=edata['content'],
+                session_id=edata['session_id'],
+                session_date=edata['session_date'],
+                question_id=edata.get('question_id', ''),
+                question_type=edata.get('question_type', ''),
+                has_answer=edata.get('has_answer', False),
+                turn_index=edata.get('turn_index', 0),
+            )
+
+        return EmbeddingIndex(
+            question_id=data['question_id'],
+            entity_ids=data['entity_ids'],
+            embeddings=data['embeddings'],
+            entity_map=entity_map,
+        )
+
+    def _save_cache(self, cache_path: Path, index: EmbeddingIndex) -> None:
+        """Save EmbeddingIndex to JSON cache file."""
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+        entity_map_data = {}
+        for eid, entity in index.entity_map.items():
+            entity_map_data[eid] = {
+                'entity_id': entity.entity_id,
+                'role': entity.role,
+                'content': entity.content,
+                'session_id': entity.session_id,
+                'session_date': entity.session_date,
+                'question_type': entity.question_type,
+                'has_answer': entity.has_answer,
+                'turn_index': entity.turn_index,
+            }
+
+        cache_data = {
+            'question_id': index.question_id,
+            'entity_ids': index.entity_ids,
+            'embeddings': index.embeddings,
+            'entity_map': entity_map_data,
+        }
+
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f)
 
     def build_all_indices(
         self,

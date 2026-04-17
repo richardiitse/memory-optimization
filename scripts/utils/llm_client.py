@@ -97,34 +97,153 @@ class LLMClient:
                 if self.api_key and not is_local:
                     headers['Authorization'] = f'Bearer {self.api_key}'
 
-                payload = {
-                    'model': self.model,
-                    'messages': messages,
-                    'temperature': temperature
-                }
-
-                response = requests.post(
-                    f'{self.base_url}/chat/completions',
-                    headers=headers,
-                    json=payload,
-                    timeout=60,
-                    proxies={'http': None, 'https': None} if is_local else None
+                # Detect DashScope Anthropic endpoint
+                is_dashscope_anthropic = (
+                    'dashscope' in self.base_url.lower() and
+                    'anthropic' in self.base_url.lower()
                 )
 
-                if response.status_code == 200:
-                    result = response.json()
-                    return result['choices'][0]['message']['content']
-                elif response.status_code in TRANSIENT_CODES and attempt < max_retries:
-                    jitter = random.uniform(0, 0.5 * backoff)
-                    time.sleep(backoff + jitter)
-                    backoff = min(backoff * 2, 30)  # cap at 30s
-                    continue
+                # Detect MiniMax API endpoint
+                is_minimax = (
+                    'minimaxi' in self.base_url.lower() or
+                    os.environ.get('MINIMAX_API_KEY')
+                ) and 'anthropic' in self.base_url.lower()
+
+                if is_minimax:
+                    # Use MiniMax Anthropic API format (x-api-key auth)
+                    minimax_headers = {
+                        'Content-Type': 'application/json',
+                        'anthropic-version': '2023-06-01',
+                    }
+                    if self.api_key:
+                        minimax_headers['x-api-key'] = self.api_key
+
+                    # Extract system message if present (MiniMax uses 'system' field)
+                    system_message = None
+                    minimax_messages = []
+                    for msg in messages:
+                        if msg.get('role') == 'system':
+                            system_message = msg.get('content', '')
+                        else:
+                            minimax_messages.append(msg)
+
+                    minimax_payload = {
+                        'model': self.model,
+                        'messages': minimax_messages,
+                        'max_tokens': 4096,
+                    }
+                    if system_message:
+                        minimax_payload['system'] = system_message
+
+                    response = requests.post(
+                        f'{self.base_url}/messages',
+                        headers=minimax_headers,
+                        json=minimax_payload,
+                        timeout=120,
+                    )
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        # Extract text from response
+                        for block in result.get('content', []):
+                            if block.get('type') == 'text':
+                                return block.get('text', '')
+                        return ''
+                    elif response.status_code in TRANSIENT_CODES and attempt < max_retries:
+                        jitter = random.uniform(0, 0.5 * backoff)
+                        time.sleep(backoff + jitter)
+                        backoff = min(backoff * 2, 30)
+                        continue
+                    else:
+                        logger.error("API returned %d: %s", response.status_code, response.text[:200])
+                        if mock_data is not None:
+                            return mock_data() if callable(mock_data) else json.dumps(mock_data)
+                        warnings.warn(f"API error {response.status_code} and no mock_data — returning None")
+                        return None
+                elif is_dashscope_anthropic:
+                    # Use DashScope Anthropic Messages API format (Bearer auth)
+                    anthropic_headers = {
+                        'Content-Type': 'application/json',
+                        'anthropic-version': '2023-06-01',
+                    }
+                    if self.api_key:
+                        anthropic_headers['Authorization'] = f'Bearer {self.api_key}'
+
+                    # Extract system message if present (DashScope uses 'system' field)
+                    system_message = None
+                    anthropic_messages = []
+                    for msg in messages:
+                        if msg.get('role') == 'system':
+                            system_message = msg.get('content', '')
+                        else:
+                            anthropic_messages.append(msg)
+
+                    anthropic_payload = {
+                        'model': self.model,
+                        'messages': anthropic_messages,
+                        'max_tokens': 4096,
+                    }
+                    if system_message:
+                        anthropic_payload['system'] = system_message
+
+                    response = requests.post(
+                        f'{self.base_url}/messages',
+                        headers=anthropic_headers,
+                        json=anthropic_payload,
+                        timeout=120,
+                    )
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        # Extract text from response
+                        for block in result.get('content', []):
+                            if block.get('type') == 'text':
+                                return block.get('text', '')
+                        return ''
+                    elif response.status_code in TRANSIENT_CODES and attempt < max_retries:
+                        jitter = random.uniform(0, 0.5 * backoff)
+                        time.sleep(backoff + jitter)
+                        backoff = min(backoff * 2, 30)
+                        continue
+                    else:
+                        logger.error("API returned %d: %s", response.status_code, response.text[:200])
+                        if mock_data is not None:
+                            return mock_data() if callable(mock_data) else json.dumps(mock_data)
+                        warnings.warn(f"API error {response.status_code} and no mock_data — returning None")
+                        return None
                 else:
-                    logger.error("API returned %d: %s", response.status_code, response.text[:200])
-                    if mock_data is not None:
-                        return mock_data() if callable(mock_data) else json.dumps(mock_data)
-                    warnings.warn(f"API error {response.status_code} and no mock_data — returning None")
-                    return None
+                    # Use OpenAI Chat Completions format
+                    payload = {
+                        'model': self.model,
+                        'messages': messages,
+                        'temperature': temperature
+                    }
+
+                    completion_path = os.environ.get(
+                        'OPENAI_COMPLETION_PATH', '/chat/completions'
+                    )
+                    response = requests.post(
+                        f'{self.base_url}{completion_path}',
+                        headers=headers,
+                        json=payload,
+                        timeout=120,
+                        proxies={'http': None, 'https': None} if is_local else None
+                    )
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        return result['choices'][0]['message']['content']
+                    elif response.status_code in TRANSIENT_CODES and attempt < max_retries:
+                        jitter = random.uniform(0, 0.5 * backoff)
+                        time.sleep(backoff + jitter)
+                        backoff = min(backoff * 2, 30)  # cap at 30s
+                        continue
+                    else:
+                        logger.error("API returned %d: %s", response.status_code, response.text[:200])
+                        if mock_data is not None:
+                            return mock_data() if callable(mock_data) else json.dumps(mock_data)
+                        warnings.warn(f"API error {response.status_code} and no mock_data — returning None")
+                        return None
 
             except Exception as e:
                 if attempt < max_retries:
