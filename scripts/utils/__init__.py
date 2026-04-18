@@ -1,6 +1,8 @@
 """Shared utilities for memory optimization scripts."""
 
 import math
+import os
+from pathlib import Path
 from typing import List
 
 
@@ -12,3 +14,42 @@ def cosine_similarity(a: List[float], b: List[float]) -> float:
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+def load_dotenv(env_path: str = None) -> None:
+    """Load environment variables from a .env file.
+
+    Args:
+        env_path: Explicit path to .env file. If None, searches upward
+                  from the script directory to find a .env file.
+    """
+    if env_path:
+        target = Path(env_path)
+    else:
+        # Walk upward from this file to find project root .env
+        current = Path(__file__).resolve().parent
+        target = None
+        for _ in range(5):
+            candidate = current / '.env'
+            if candidate.exists():
+                target = candidate
+                break
+            current = current.parent
+        if target is None:
+            return
+
+    if not target.exists():
+        return
+
+    with open(target, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and value and key not in os.environ:
+                os.environ[key] = value

@@ -4,6 +4,7 @@ Contains path configuration, constants, and environment loading.
 """
 
 import os
+import sys
 from pathlib import Path
 from typing import Dict
 
@@ -22,35 +23,13 @@ else:
     SCRIPT_DIR = _PACKAGE_DIR
 WORKSPACE_ROOT = SCRIPT_DIR.parent
 
+# Enable imports from scripts/utils/
+sys.path.insert(0, str(SCRIPT_DIR))
 
-def load_env_file():
-    """从 .env 文件加载环境变量
-
-    查找 WORKSPACE_ROOT/.env 文件并设置环境变量。
-    跳过注释和空行，支持带引号的值。
-    """
-    env_file = WORKSPACE_ROOT / ".env"
-    if not env_file.exists():
-        return
-
-    with open(env_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            # 跳过空行和注释
-            if not line or line.startswith('#'):
-                continue
-            # 解析 KEY=value
-            if '=' not in line:
-                continue
-            key, value = line.split('=', 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key and value:
-                os.environ[key] = value
-
+from utils import load_dotenv  # noqa: E402
 
 # 加载 .env 文件（必须在读取 KG_DIR 之前）
-load_env_file()
+load_dotenv()
 
 # 现在根据环境变量设置路径
 _kg_dir = os.environ.get('KG_DIR', '')  # 可配置的知识图谱目录

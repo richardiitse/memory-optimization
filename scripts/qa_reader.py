@@ -33,6 +33,9 @@ from longmemeval_adapter import (
 
 logger = logging.getLogger(__name__)
 
+SECONDS_PER_DAY = 86400.0
+DEFAULT_READER_TEMPERATURE = 0.5
+
 
 # ========== Retriever ==========
 
@@ -143,7 +146,7 @@ class Retriever:
             # Parse ISO format dates (handle various formats)
             ed = datetime.fromisoformat(entity_date)
             qd = datetime.fromisoformat(question_date)
-            days_diff = abs((ed - qd).total_seconds()) / 86400.0
+            days_diff = abs((ed - qd).total_seconds()) / SECONDS_PER_DAY
             return math.exp(-days_diff / tau)
         except (ValueError, TypeError):
             return 0.0
@@ -345,7 +348,7 @@ class Reader:
             {"role": "user", "content": prompt},
         ]
 
-        response = self.client.call(messages, temperature=0.5)
+        response = self.client.call(messages, temperature=DEFAULT_READER_TEMPERATURE)
 
         elapsed_ms = (time.time() - start) * 1000
 

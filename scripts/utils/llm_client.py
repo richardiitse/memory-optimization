@@ -1,14 +1,27 @@
 """
 Shared LLM Client — unified interface for all memory optimization scripts.
 
-Provides a single LLMClient implementation used by:
-- kg_extractor.py
-- preference_engine.py
-- consolidation_engine.py
-- working_memory.py
-- longmemeval_adapter.py
-- qa_reader.py
-- eval_bridge.py
+Supports multiple backends, auto-detected from base_url:
+- Ollama (local, no auth)
+- MiniMax Anthropic (Bearer auth)
+- DashScope Anthropic (Bearer auth)
+- OpenAI-compatible (Bearer auth, default)
+
+Usage:
+    from utils.llm_client import LLMClient
+
+    # Auto-detect from .env / environment variables
+    client = LLMClient()
+
+    # Explicit backend
+    client = LLMClient(
+        base_url='https://api.minimaxi.com/anthropic/v1',
+        api_key='your-key',
+        model='MiniMax-M2.7-highspeed',
+    )
+
+    response = client.call([{"role": "user", "content": "Hello"}])
+    embedding = client.embed("some text")
 """
 
 import json
@@ -19,23 +32,41 @@ import time
 import warnings
 
 import requests
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+from utils import load_dotenv
 
 logger = logging.getLogger(__name__)
 
+# Load .env once at module import
+load_dotenv()
+
 
 class LLMClient:
-    """Shared LLM client — supports OpenAI compatible API.
+    """Shared LLM client — supports multiple API backends.
+
+    Backend auto-detection from base_url:
+    - 'ollama': localhost URLs, no auth
+    - 'minimax_anthropic': minimaxi.com + anthropic path, Bearer auth
+    - 'dashscope_anthropic': dashscope + anthropic path, Bearer auth
+    - 'openai': everything else, Bearer auth
 
     Priority: constructor arg > environment variable > default
     """
 
     DEFAULT_MODEL = 'glm-5'
     DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'
-    # Embedding 模型配置 — 默认本地 Ollama qwen3-embedding
-    # 可通过环境变量 OPENAI_EMBED_BASE_URL / OPENAI_EMBED_MODEL 覆盖
     DEFAULT_EMBED_MODEL = 'qwen3-embedding'
     DEFAULT_EMBED_BASE_URL = 'http://localhost:11434/api'
+
+    # API parameters
+    DEFAULT_MAX_TOKENS = 4096
+    MAX_RETRIES = 3
+    MAX_BACKOFF_SECONDS = 30
+    CHAT_TIMEOUT_SECONDS = 120
+    EMBED_TIMEOUT_SECONDS = 30
+
+    TRANSIENT_CODES = {429, 500, 502, 503, 504}
 
     def __init__(
         self,
@@ -48,18 +79,109 @@ class LLMClient:
             'OPENAI_BASE_URL', self.DEFAULT_BASE_URL
         )
         self.model = model or os.environ.get('OPENAI_MODEL', self.DEFAULT_MODEL)
-        # Embedding-specific settings (may differ from chat model)
         self.embed_base_url = os.environ.get(
             'OPENAI_EMBED_BASE_URL', self.DEFAULT_EMBED_BASE_URL
         )
         self.embed_model = os.environ.get(
             'OPENAI_EMBED_MODEL', self.DEFAULT_EMBED_MODEL
         )
+        # Cache backend detection
+        self._backend = self._detect_backend()
 
-    @property
-    def _is_local(self) -> bool:
-        """Check if the base URL points to localhost."""
-        return self.base_url.startswith('http://localhost')
+    # ========== Backend Detection ==========
+
+    def _detect_backend(self) -> str:
+        """Detect API backend from base_url and env vars.
+
+        Returns one of: 'ollama', 'minimax_anthropic', 'dashscope_anthropic', 'openai'
+        """
+        url = self.base_url.lower()
+        if url.startswith('http://localhost'):
+            return 'ollama'
+        if 'minimaxi' in url and 'anthropic' in url:
+            return 'minimax_anthropic'
+        if 'dashscope' in url and 'anthropic' in url:
+            return 'dashscope_anthropic'
+        return 'openai'
+
+    # ========== Request Building ==========
+
+    def _build_request(
+        self,
+        messages: List[Dict],
+        temperature: float,
+    ) -> Tuple[Dict, Dict, str]:
+        """Build headers, payload, and URL for the detected backend.
+
+        Returns:
+            (headers, payload, url) tuple ready for requests.post
+        """
+        backend = self._backend
+
+        if backend in ('minimax_anthropic', 'dashscope_anthropic'):
+            # Anthropic Messages API format
+            headers = {
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01',
+            }
+            # MiniMax and DashScope both use Bearer auth for Anthropic API
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+
+            # Extract system message into top-level 'system' field
+            system_message = None
+            api_messages = []
+            for msg in messages:
+                if msg.get('role') == 'system':
+                    system_message = msg.get('content', '')
+                else:
+                    api_messages.append(msg)
+
+            payload = {
+                'model': self.model,
+                'messages': api_messages,
+                'max_tokens': self.DEFAULT_MAX_TOKENS,
+                'temperature': temperature,
+            }
+            if system_message:
+                payload['system'] = system_message
+
+            url = f'{self.base_url}/messages'
+
+        else:
+            # OpenAI Chat Completions format (also used by Ollama)
+            headers = {'Content-Type': 'application/json'}
+            if self.api_key and backend != 'ollama':
+                headers['Authorization'] = f'Bearer {self.api_key}'
+
+            payload = {
+                'model': self.model,
+                'messages': messages,
+                'temperature': temperature,
+            }
+
+            completion_path = os.environ.get(
+                'OPENAI_COMPLETION_PATH', '/chat/completions'
+            )
+            url = f'{self.base_url}{completion_path}'
+
+        return headers, payload, url
+
+    def _parse_response(self, response_json: Dict) -> Optional[str]:
+        """Parse response content based on backend format."""
+        backend = self._backend
+
+        if backend in ('minimax_anthropic', 'dashscope_anthropic'):
+            # Anthropic Messages API: {"content": [{"type": "text", "text": "..."}]}
+            for block in response_json.get('content', []):
+                if block.get('type') == 'text':
+                    return block.get('text', '')
+            return ''
+        else:
+            # OpenAI format: {"choices": [{"message": {"content": "..."}}]}
+            return response_json['choices'][0]['message']['content']
+
+    # ========== Chat Completion ==========
 
     def call(
         self, messages: List[Dict], temperature: float = 0.7,
@@ -77,189 +199,68 @@ class LLMClient:
         Returns:
             LLM response text, or mock_data (or None) on failure
         """
-        is_local = self._is_local
-
         # Local Ollama doesn't need an API key
-        if not is_local and not self.api_key:
+        if self._backend != 'ollama' and not self.api_key:
             if mock_data is not None:
                 return mock_data() if callable(mock_data) else json.dumps(mock_data)
             warnings.warn("No API key configured and no mock_data provided — returning None")
             return None
 
-        # Transient error codes that warrant retry
-        TRANSIENT_CODES = {429, 500, 502, 503, 504}
-        max_retries = 3
-        backoff = 1.0  # seconds
+        max_retries = self.MAX_RETRIES
+        backoff = 1.0
+        headers, payload, url = self._build_request(messages, temperature)
+        proxies = (
+            {'http': None, 'https': None}
+            if self._backend == 'ollama' else None
+        )
 
         for attempt in range(max_retries + 1):
             try:
-                headers = {'Content-Type': 'application/json'}
-                if self.api_key and not is_local:
-                    headers['Authorization'] = f'Bearer {self.api_key}'
-
-                # Detect DashScope Anthropic endpoint
-                is_dashscope_anthropic = (
-                    'dashscope' in self.base_url.lower() and
-                    'anthropic' in self.base_url.lower()
+                response = requests.post(
+                    url, headers=headers, json=payload,
+                    timeout=self.CHAT_TIMEOUT_SECONDS, proxies=proxies,
                 )
 
-                # Detect MiniMax API endpoint
-                is_minimax = (
-                    'minimaxi' in self.base_url.lower() or
-                    os.environ.get('MINIMAX_API_KEY')
-                ) and 'anthropic' in self.base_url.lower()
-
-                if is_minimax:
-                    # Use MiniMax Anthropic API format (x-api-key auth)
-                    minimax_headers = {
-                        'Content-Type': 'application/json',
-                        'anthropic-version': '2023-06-01',
-                    }
-                    if self.api_key:
-                        minimax_headers['x-api-key'] = self.api_key
-
-                    # Extract system message if present (MiniMax uses 'system' field)
-                    system_message = None
-                    minimax_messages = []
-                    for msg in messages:
-                        if msg.get('role') == 'system':
-                            system_message = msg.get('content', '')
-                        else:
-                            minimax_messages.append(msg)
-
-                    minimax_payload = {
-                        'model': self.model,
-                        'messages': minimax_messages,
-                        'max_tokens': 4096,
-                    }
-                    if system_message:
-                        minimax_payload['system'] = system_message
-
-                    response = requests.post(
-                        f'{self.base_url}/messages',
-                        headers=minimax_headers,
-                        json=minimax_payload,
-                        timeout=120,
-                    )
-
-                    if response.status_code == 200:
-                        result = response.json()
-                        # Extract text from response
-                        for block in result.get('content', []):
-                            if block.get('type') == 'text':
-                                return block.get('text', '')
-                        return ''
-                    elif response.status_code in TRANSIENT_CODES and attempt < max_retries:
-                        jitter = random.uniform(0, 0.5 * backoff)
-                        time.sleep(backoff + jitter)
-                        backoff = min(backoff * 2, 30)
-                        continue
-                    else:
-                        logger.error("API returned %d: %s", response.status_code, response.text[:200])
-                        if mock_data is not None:
-                            return mock_data() if callable(mock_data) else json.dumps(mock_data)
-                        warnings.warn(f"API error {response.status_code} and no mock_data — returning None")
-                        return None
-                elif is_dashscope_anthropic:
-                    # Use DashScope Anthropic Messages API format (Bearer auth)
-                    anthropic_headers = {
-                        'Content-Type': 'application/json',
-                        'anthropic-version': '2023-06-01',
-                    }
-                    if self.api_key:
-                        anthropic_headers['Authorization'] = f'Bearer {self.api_key}'
-
-                    # Extract system message if present (DashScope uses 'system' field)
-                    system_message = None
-                    anthropic_messages = []
-                    for msg in messages:
-                        if msg.get('role') == 'system':
-                            system_message = msg.get('content', '')
-                        else:
-                            anthropic_messages.append(msg)
-
-                    anthropic_payload = {
-                        'model': self.model,
-                        'messages': anthropic_messages,
-                        'max_tokens': 4096,
-                    }
-                    if system_message:
-                        anthropic_payload['system'] = system_message
-
-                    response = requests.post(
-                        f'{self.base_url}/messages',
-                        headers=anthropic_headers,
-                        json=anthropic_payload,
-                        timeout=120,
-                    )
-
-                    if response.status_code == 200:
-                        result = response.json()
-                        # Extract text from response
-                        for block in result.get('content', []):
-                            if block.get('type') == 'text':
-                                return block.get('text', '')
-                        return ''
-                    elif response.status_code in TRANSIENT_CODES and attempt < max_retries:
-                        jitter = random.uniform(0, 0.5 * backoff)
-                        time.sleep(backoff + jitter)
-                        backoff = min(backoff * 2, 30)
-                        continue
-                    else:
-                        logger.error("API returned %d: %s", response.status_code, response.text[:200])
-                        if mock_data is not None:
-                            return mock_data() if callable(mock_data) else json.dumps(mock_data)
-                        warnings.warn(f"API error {response.status_code} and no mock_data — returning None")
-                        return None
+                if response.status_code == 200:
+                    return self._parse_response(response.json())
+                elif response.status_code in self.TRANSIENT_CODES and attempt < max_retries:
+                    jitter = random.uniform(0, 0.5 * backoff)
+                    time.sleep(backoff + jitter)
+                    backoff = min(backoff * 2, self.MAX_BACKOFF_SECONDS)
+                    continue
                 else:
-                    # Use OpenAI Chat Completions format
-                    payload = {
-                        'model': self.model,
-                        'messages': messages,
-                        'temperature': temperature
-                    }
-
-                    completion_path = os.environ.get(
-                        'OPENAI_COMPLETION_PATH', '/chat/completions'
+                    logger.error(
+                        "API returned %d: %s",
+                        response.status_code, response.text[:200],
                     )
-                    response = requests.post(
-                        f'{self.base_url}{completion_path}',
-                        headers=headers,
-                        json=payload,
-                        timeout=120,
-                        proxies={'http': None, 'https': None} if is_local else None
+                    if mock_data is not None:
+                        return mock_data() if callable(mock_data) else json.dumps(mock_data)
+                    warnings.warn(
+                        f"API error {response.status_code} and no mock_data — returning None"
                     )
-
-                    if response.status_code == 200:
-                        result = response.json()
-                        return result['choices'][0]['message']['content']
-                    elif response.status_code in TRANSIENT_CODES and attempt < max_retries:
-                        jitter = random.uniform(0, 0.5 * backoff)
-                        time.sleep(backoff + jitter)
-                        backoff = min(backoff * 2, 30)  # cap at 30s
-                        continue
-                    else:
-                        logger.error("API returned %d: %s", response.status_code, response.text[:200])
-                        if mock_data is not None:
-                            return mock_data() if callable(mock_data) else json.dumps(mock_data)
-                        warnings.warn(f"API error {response.status_code} and no mock_data — returning None")
-                        return None
+                    return None
 
             except Exception as e:
                 if attempt < max_retries:
                     time.sleep(backoff + random.uniform(0, 0.5 * backoff))
-                    backoff = min(backoff * 2, 30)
+                    backoff = min(backoff * 2, self.MAX_BACKOFF_SECONDS)
                     continue
                 logger.error("Error calling LLM: %s", e)
                 if mock_data is not None:
                     return mock_data() if callable(mock_data) else json.dumps(mock_data)
-                warnings.warn(f"LLM call failed after {max_retries} retries and no mock_data — returning None")
+                warnings.warn(
+                    f"LLM call failed after {max_retries} retries and no mock_data — returning None"
+                )
                 return None
 
         if mock_data is not None:
             return mock_data() if callable(mock_data) else json.dumps(mock_data)
-        warnings.warn(f"LLM call exhausted {max_retries} retries and no mock_data — returning None")
+        warnings.warn(
+            f"LLM call exhausted {max_retries} retries and no mock_data — returning None"
+        )
         return None
+
+    # ========== JSON Output ==========
 
     def call_json(
         self, messages: List[Dict], temperature: float = 0.3
@@ -281,6 +282,8 @@ class LLMClient:
         except json.JSONDecodeError:
             return None
 
+    # ========== Embeddings ==========
+
     def embed(self, text: str) -> Optional[List[float]]:
         """Compute embedding vector for text using the embeddings API.
 
@@ -290,7 +293,6 @@ class LLMClient:
         Returns:
             List of floats (embedding vector), or None on failure
         """
-        # Skip API key check for local Ollama (no auth needed)
         is_local = self.embed_base_url.startswith('http://localhost')
         if not is_local and not self.api_key:
             warnings.warn("No API key — cannot compute embedding")
@@ -311,8 +313,8 @@ class LLMClient:
                 f'{self.embed_base_url}/embeddings',
                 headers=headers,
                 json=payload,
-                timeout=30,
-                proxies={'http': None, 'https': None} if is_local else None
+                timeout=self.EMBED_TIMEOUT_SECONDS,
+                proxies={'http': None, 'https': None} if is_local else None,
             )
 
             if response.status_code == 200:
@@ -324,15 +326,23 @@ class LLMClient:
                 elif 'embedding' in result:
                     return result['embedding']
                 else:
-                    logger.error("Embedding error: unexpected response format: %s", response.text[:200])
+                    logger.error(
+                        "Embedding error: unexpected response format: %s",
+                        response.text[:200],
+                    )
                     return None
             else:
-                logger.error("Embedding error: API returned %d: %s", response.status_code, response.text[:200])
+                logger.error(
+                    "Embedding error: API returned %d: %s",
+                    response.status_code, response.text[:200],
+                )
                 return None
 
         except Exception as e:
             logger.error("Error computing embedding: %s", e)
             return None
+
+    # ========== Mock ==========
 
     def mock_response(self, mock_data: Dict) -> str:
         """Generate a mock response for testing.

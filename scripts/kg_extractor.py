@@ -30,41 +30,15 @@ KG_LOG_FILE = ONTOLOGY_DIR / "kg_extraction_log.jsonl"
 sys.path.insert(0, str(SCRIPT_DIR))  # enable utils.llm_client import
 
 from utils.llm_client import LLMClient  # noqa: E402
+from utils import load_dotenv  # noqa: E402
 
 # 默认配置
 DEFAULT_KG_DIR = ""  # 开发环境使用 ontology/
 DEFAULT_API_KEY = ""  # 从环境变量 OPENAI_API_KEY 读取
 DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 
-
-def load_env_file():
-    """从 .env 文件加载环境变量
-
-    查找 WORKSPACE_ROOT/.env 文件并设置环境变量。
-    跳过注释和空行，支持带引号的值。
-    """
-    env_file = WORKSPACE_ROOT / ".env"
-    if not env_file.exists():
-        return
-
-    with open(env_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            # 跳过空行和注释
-            if not line or line.startswith('#'):
-                continue
-            # 解析 KEY=value
-            if '=' not in line:
-                continue
-            key, value = line.split('=', 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key and value:
-                os.environ[key] = value
-
-
 # 加载 .env 文件（如果存在）
-load_env_file()
+load_dotenv()
 
 
 # ========== 数据模型 ==========
@@ -194,6 +168,128 @@ class JSONLParser:
             if subdir.is_dir():
                 jsonl_files.extend(subdir.glob('*.jsonl'))
 
+        return sorted(jsonl_files)
+
+
+class HermesJSONLParser:
+    """解析 Hermes JSONL 会话文件
+
+    Hermes 格式（不同于 OpenClaw）：
+    - 顶层字段：role, content, timestamp, reasoning, finish_reason, tool_calls 等
+    - 无 type 字段
+    - content 是 list（包含 text/thinking/tool_use 等 parts）或 str
+    - assistant 消息有 tool_calls 字段
+    """
+
+    @staticmethod
+    def parse_file(file_path: Path) -> Optional[Conversation]:
+        """解析单个 Hermes JSONL 文件"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            messages = []
+            session_id = file_path.stem
+
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                # Hermes 格式：无 type 字段，通过 role 判断
+                role = data.get('role')
+                if role not in ('user', 'assistant'):
+                    continue
+
+                # 提取内容
+                content = HermesJSONLParser._extract_content(data.get('content', ''))
+                timestamp = data.get('timestamp', '')
+
+                # assistant 消息的工具调用追加到内容
+                tool_calls = data.get('tool_calls', [])
+                if tool_calls and role == 'assistant':
+                    tc_text = HermesJSONLParser._extract_tool_calls(tool_calls)
+                    if tc_text:
+                        content = content + "\n[工具调用]:\n" + tc_text if content else tc_text
+
+                if not content.strip():
+                    continue
+
+                messages.append(Message(
+                    role=role,
+                    content=content,
+                    timestamp=timestamp,
+                    session_id=session_id,
+                    message_id=data.get('id', '')
+                ))
+
+            if not messages:
+                return None
+
+            return Conversation(
+                session_id=session_id,
+                messages=messages,
+                timestamp=messages[0].timestamp if messages else ""
+            )
+
+        except Exception as e:
+            print(f"Warning: Failed to parse {file_path}: {e}")
+            return None
+
+    @staticmethod
+    def _extract_content(content) -> str:
+        """从 Hermes content 字段提取文本"""
+        if not content:
+            return ''
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for part in content:
+                if isinstance(part, dict):
+                    if part.get('type') == 'text':
+                        parts.append(part.get('text', ''))
+                    elif part.get('type') == 'thinking':
+                        # 包含 thinking 内容作为参考
+                        thinking = part.get('thinking', '')
+                        if thinking:
+                            parts.append(f"[思考]: {thinking}")
+            return '\n'.join(parts)
+        return str(content)
+
+    @staticmethod
+    def _extract_tool_calls(tool_calls: list) -> str:
+        """将工具调用列表格式化为文本"""
+        lines = []
+        for tc in tool_calls:
+            if isinstance(tc, dict):
+                fn = tc.get('function', {})
+                name = fn.get('name', tc.get('name', 'unknown'))
+                args = fn.get('arguments', '')
+                # args 可能是 JSON 字符串
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                if isinstance(args, dict):
+                    args_str = ', '.join(f"{k}={v}" for k, v in args.items())
+                else:
+                    args_str = str(args)
+                lines.append(f"  - {name}({args_str})")
+        return '\n'.join(lines)
+
+    @staticmethod
+    def scan_directory(agents_sessions_dir: Path) -> List[Path]:
+        """扫描 Hermes sessions 目录下的所有 JSONL 文件"""
+        jsonl_files = []
+        if agents_sessions_dir.exists() and agents_sessions_dir.is_dir():
+            jsonl_files.extend(agents_sessions_dir.glob('*.jsonl'))
         return sorted(jsonl_files)
 
 
@@ -540,20 +636,34 @@ class BatchProcessor:
 
     def process_directory(self, agents_dir: Path, batch_size: int = 5,
                          dry_run: bool = False, limit: int = None,
-                         log: bool = False) -> Dict:
-        """处理目录下所有会话文件"""
-        jsonl_files = JSONLParser.scan_directory(agents_dir)
+                         log: bool = False,
+                         parser_class=None) -> Dict:
+        """处理目录下所有会话文件
+
+        Args:
+            agents_dir: 会话目录
+            batch_size: 每批处理文件数
+            dry_run: 是否仅模拟
+            limit: 处理文件数上限
+            log: 是否写入日志
+            parser_class: JSONL 解析器类，默认使用 JSONLParser（OpenClaw 格式）
+        """
+        if parser_class is None:
+            parser_class = JSONLParser
+
+        jsonl_files = parser_class.scan_directory(agents_dir)
 
         if limit:
             jsonl_files = jsonl_files[:limit]
 
         print(f"\n📁 Found {len(jsonl_files)} JSONL files")
+        print(f"   Parser: {parser_class.__name__}")
 
         for i, file_path in enumerate(jsonl_files):
             print(f"\n[{i+1}/{len(jsonl_files)}] Processing: {file_path.name}")
 
             # 解析文件
-            conversation = JSONLParser.parse_file(file_path)
+            conversation = parser_class.parse_file(file_path)
 
             if not conversation:
                 print(f"  ✗ No valid messages found")
@@ -711,6 +821,13 @@ def main():
         help='将处理记录写入日志文件 (ontology/kg_extraction_log.jsonl)'
     )
 
+    parser.add_argument(
+        '--hermes-dir',
+        type=Path,
+        default=None,
+        help='Hermes sessions 目录路径（如 ~/.hermes/sessions），自动使用 HermesJSONLParser'
+    )
+
     args = parser.parse_args()
 
     # 设置知识图谱目录（必须在导入 memory_ontology 之前）
@@ -723,11 +840,20 @@ def main():
     # 重新导入以应用 KG_DIR 配置
     if 'memory_ontology' in sys.modules:
         del sys.modules['memory_ontology']
-    sys.path.insert(0, str(SCRIPT_DIR))
     from memory_ontology import create_entity, load_schema, validate_entity
 
-    print("🚀 KG Extractor")
-    print(f"   Agents目录: {args.agents_dir}")
+    # 确定目录和解析器
+    if args.hermes_dir:
+        agents_dir = args.hermes_dir
+        parser_class = HermesJSONLParser
+        print("🚀 KG Extractor (Hermes 模式)")
+    else:
+        agents_dir = args.agents_dir
+        parser_class = JSONLParser
+        print("🚀 KG Extractor")
+
+    print(f"   会话目录: {agents_dir}")
+    print(f"   解析器: {parser_class.__name__}")
     print(f"   模型: {args.model}")
     print(f"   Dry-run: {args.dry_run}")
 
@@ -743,11 +869,12 @@ def main():
 
     # 处理
     stats = processor.process_directory(
-        args.agents_dir,
+        agents_dir,
         batch_size=args.batch_size,
         dry_run=args.dry_run,
         limit=args.limit,
-        log=args.log
+        log=args.log,
+        parser_class=parser_class
     )
 
     # 输出报告

@@ -18,7 +18,6 @@ The actual implementation has been moved to the memory_ontology package.
 # Re-export all public API from the memory_ontology package for backward compatibility
 from memory_ontology import (
     # config
-    load_env_file,
     SCRIPT_DIR,
     WORKSPACE_ROOT,
     ONTOLOGY_DIR,
@@ -76,7 +75,6 @@ from memory_ontology import (
 
 __all__ = [
     # config
-    'load_env_file',
     'SCRIPT_DIR',
     'WORKSPACE_ROOT',
     'ONTOLOGY_DIR',

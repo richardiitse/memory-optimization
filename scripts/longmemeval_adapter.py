@@ -150,7 +150,6 @@ class LongMemEvalAdapter:
         session_ids = inst.get('haystack_session_ids', [])
         session_dates = inst.get('haystack_dates', [])
 
-        entity_counter = 0
         for sess_idx, session in enumerate(sessions):
             sid = session_ids[sess_idx] if sess_idx < len(session_ids) else f"session_{sess_idx}"
             sdate = session_dates[sess_idx] if sess_idx < len(session_dates) else ''
@@ -178,7 +177,6 @@ class LongMemEvalAdapter:
                     has_answer=has_answer,
                     turn_index=turn_idx,
                 ))
-                entity_counter += 1
 
         return qi
 
@@ -320,6 +318,72 @@ class LongMemEvalAdapter:
 
 # ========== CLI ==========
 
+def _print_parse_stats(questions: List[QuestionInstance]) -> None:
+    """Print statistics about parsed questions."""
+    from collections import Counter
+    print(f"\nParsed {len(questions)} questions")
+    types = Counter(q.question_type for q in questions)
+    for t, c in sorted(types.items(), key=lambda x: -x[1]):
+        print(f"  {t}: {c}")
+    abs_count = sum(1 for q in questions if q.is_abstention)
+    print(f"  Abstention: {abs_count}")
+    total_entities = sum(len(q.entities) for q in questions)
+    print(f"  Total entities (turns): {total_entities}")
+
+
+def _write_embedded_output(
+    indices: List[tuple],
+    output_path: Path,
+) -> None:
+    """Write parsed + embedded data to JSON."""
+    output_data = []
+    for qi, idx in indices:
+        entry = {
+            'question_id': qi.question_id,
+            'question_type': qi.question_type,
+            'question': qi.question,
+            'answer': qi.answer,
+            'is_abstention': qi.is_abstention,
+            'n_entities': len(qi.entities),
+            'embedding_dim': len(idx.embeddings[0]) if idx.embeddings else 0,
+        }
+        output_data.append(entry)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+    print(f"\nSaved to {output_path}")
+
+
+def _write_parsed_output(
+    questions: List[QuestionInstance],
+    output_path: Path,
+) -> None:
+    """Write parsed data (without embeddings) to JSON."""
+    output_data = []
+    for qi in questions:
+        entry = {
+            'question_id': qi.question_id,
+            'question_type': qi.question_type,
+            'question': qi.question,
+            'answer': qi.answer,
+            'is_abstention': qi.is_abstention,
+            'n_entities': len(qi.entities),
+            'entities': [
+                {
+                    'entity_id': e.entity_id,
+                    'role': e.role,
+                    'content': e.content[:100] + '...' if len(e.content) > 100 else e.content,
+                    'session_date': e.session_date,
+                    'has_answer': e.has_answer,
+                }
+                for e in qi.entities[:5]  # preview first 5
+            ],
+        }
+        output_data.append(entry)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+    print(f"\nSaved to {output_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='LongMemEval Adapter — parse oracle data and build embedding index'
@@ -362,18 +426,7 @@ def main():
     # Parse
     adapter = LongMemEvalAdapter()
     questions = adapter.parse_file(args.data_file)
-
-    print(f"\nParsed {len(questions)} questions")
-    from collections import Counter
-    types = Counter(q.question_type for q in questions)
-    for t, c in sorted(types.items(), key=lambda x: -x[1]):
-        print(f"  {t}: {c}")
-
-    abs_count = sum(1 for q in questions if q.is_abstention)
-    print(f"  Abstention: {abs_count}")
-
-    total_entities = sum(len(q.entities) for q in questions)
-    print(f"  Total entities (turns): {total_entities}")
+    _print_parse_stats(questions)
 
     if args.limit:
         questions = questions[:args.limit]
@@ -388,53 +441,10 @@ def main():
         )
         adapter = LongMemEvalAdapter(llm_client=client)
         indices = adapter.build_all_indices(questions)
-
         if args.output:
-            # Save parsed + embedded data
-            output_data = []
-            for qi, idx in indices:
-                entry = {
-                    'question_id': qi.question_id,
-                    'question_type': qi.question_type,
-                    'question': qi.question,
-                    'answer': qi.answer,
-                    'is_abstention': qi.is_abstention,
-                    'n_entities': len(qi.entities),
-                    'embedding_dim': len(idx.embeddings[0]) if idx.embeddings else 0,
-                }
-                output_data.append(entry)
-
-            with open(args.output, 'w', encoding='utf-8') as f:
-                json.dump(output_data, f, indent=2, ensure_ascii=False)
-            print(f"\nSaved to {args.output}")
-
+            _write_embedded_output(indices, args.output)
     elif args.output:
-        # Save parsed data without embeddings
-        output_data = []
-        for qi in questions:
-            entry = {
-                'question_id': qi.question_id,
-                'question_type': qi.question_type,
-                'question': qi.question,
-                'answer': qi.answer,
-                'is_abstention': qi.is_abstention,
-                'n_entities': len(qi.entities),
-                'entities': [
-                    {
-                        'entity_id': e.entity_id,
-                        'role': e.role,
-                        'content': e.content[:100] + '...' if len(e.content) > 100 else e.content,
-                        'session_date': e.session_date,
-                        'has_answer': e.has_answer,
-                    }
-                    for e in qi.entities[:5]  # preview first 5
-                ],
-            }
-            output_data.append(entry)
-
-        with open(args.output, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, indent=2, ensure_ascii=False)
-        print(f"\nSaved to {args.output}")
+        _write_parsed_output(questions, args.output)
 
 
 if __name__ == '__main__':
