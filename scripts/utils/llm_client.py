@@ -180,7 +180,11 @@ class LLMClient:
             return ''
         else:
             # OpenAI format: {"choices": [{"message": {"content": "..."}}]}
-            return response_json['choices'][0]['message']['content']
+            choices = response_json.get('choices', [])
+            if not choices:
+                return ''
+            msg = choices[0].get('message', {})
+            return msg.get('content', '')
 
     # ========== Chat Completion ==========
 
