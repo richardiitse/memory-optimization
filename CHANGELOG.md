@@ -8,6 +8,11 @@ All notable changes to this project are documented in this file.
 
 - **Test Coverage Sprint**: +37 tests across 3 new test files (`test_filter_temporal_questions.py`, `test_evaluate_with_llm.py`, `test_grid_search_alpha_tau.py`). Coverage improved from 56% to 59%.
 
+### Fixed
+
+- **eval_bridge**: Guard `embeddings[0]` against empty vector lists causing IndexError.
+- **longmemeval_adapter**: Raise `RuntimeError` when all embeddings fail, instead of silently producing empty zero vectors.
+
 ### Changed
 
 - **eval_bridge tests**: Added `TestPrintReport` class with 3 tests for `print_report()`.

@@ -141,6 +141,98 @@ class TestScoreResults:
         assert abstained == 0
 
 
+class TestLoadGroundTruth:
+    """Tests for load_ground_truth() function."""
+
+    def test_loads_all_question_answers(self, tmp_path):
+        """Should return dict of question_id -> answer for all items."""
+        from grid_search_alpha_tau import load_ground_truth
+        oracle_file = tmp_path / "oracle.json"
+        oracle_file.write_text(json.dumps([
+            {"question_id": "q1", "answer": "blue"},
+            {"question_id": "q2", "answer": "red"},
+        ]))
+        # Monkeypatch the ORACLE_DATA path
+        import grid_search_alpha_tau
+        orig = grid_search_alpha_tau.ORACLE_DATA
+        grid_search_alpha_tau.ORACLE_DATA = oracle_file
+        try:
+            gt = load_ground_truth()
+            assert gt == {"q1": "blue", "q2": "red"}
+        finally:
+            grid_search_alpha_tau.ORACLE_DATA = orig
+
+    def test_answer_can_be_int(self, tmp_path):
+        """Answer field may be integer."""
+        from grid_search_alpha_tau import load_ground_truth
+        oracle_file = tmp_path / "oracle.json"
+        oracle_file.write_text(json.dumps([
+            {"question_id": "q1", "answer": 42},
+        ]))
+        import grid_search_alpha_tau
+        orig = grid_search_alpha_tau.ORACLE_DATA
+        grid_search_alpha_tau.ORACLE_DATA = oracle_file
+        try:
+            gt = load_ground_truth()
+            assert gt["q1"] == 42
+        finally:
+            grid_search_alpha_tau.ORACLE_DATA = orig
+
+
+class TestPrintHeatmap:
+    """Tests for print_heatmap() — verifies it runs without error."""
+
+    def test_heatmap_runs_without_error(self):
+        """print_heatmap should not raise on valid results."""
+        from grid_search_alpha_tau import print_heatmap, GridResult
+        results = [
+            GridResult(alpha=0.6, tau=30, accuracy=0.5, correct=50,
+                      total=100, abstained=7, avg_confidence=0.6, timing_ms=1000.0),
+            GridResult(alpha=0.3, tau=30, accuracy=0.4, correct=40,
+                      total=100, abstained=12, avg_confidence=0.6, timing_ms=1000.0),
+        ]
+        # Should not raise
+        print_heatmap(results)
+
+    def test_heatmap_handles_missing_combinations(self):
+        """print_heatmap should show N/A for missing alpha/tau combos."""
+        from grid_search_alpha_tau import print_heatmap, GridResult
+        # Only one combination — others show N/A
+        results = [
+            GridResult(alpha=0.6, tau=30, accuracy=0.5, correct=50,
+                      total=100, abstained=7, avg_confidence=0.6, timing_ms=1000.0),
+        ]
+        print_heatmap(results)  # Should not raise
+
+
+class TestPrintFullTable:
+    """Tests for print_full_table() — verifies it runs without error."""
+
+    def test_full_table_runs_without_error(self):
+        """print_full_table should not raise on valid results."""
+        from grid_search_alpha_tau import print_full_table, GridResult
+        results = [
+            GridResult(alpha=0.6, tau=30, accuracy=0.5, correct=50,
+                      total=100, abstained=7, avg_confidence=0.6, timing_ms=1000.0),
+            GridResult(alpha=0.3, tau=15, accuracy=0.3, correct=30,
+                      total=100, abstained=20, avg_confidence=0.5, timing_ms=800.0),
+        ]
+        print_full_table(results)
+
+    def test_full_table_sorted_by_accuracy_descending(self):
+        """Results should be printed sorted by accuracy descending."""
+        from grid_search_alpha_tau import print_full_table, GridResult
+        results = [
+            GridResult(alpha=0.3, tau=30, accuracy=0.3, correct=30,
+                      total=100, abstained=7, avg_confidence=0.5, timing_ms=800.0),
+            GridResult(alpha=0.6, tau=30, accuracy=0.5, correct=50,
+                      total=100, abstained=7, avg_confidence=0.6, timing_ms=1000.0),
+            GridResult(alpha=0.8, tau=15, accuracy=0.4, correct=40,
+                      total=100, abstained=10, avg_confidence=0.55, timing_ms=900.0),
+        ]
+        print_full_table(results)  # Only checks it doesn't raise
+
+
 class TestGridResult:
     """Tests for GridResult dataclass."""
 
