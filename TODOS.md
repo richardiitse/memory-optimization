@@ -231,18 +231,34 @@ python3 scripts/entity_dedup.py stats
 
 ---
 
-## P3 - Hybrid Retrieval Alpha/Tau Grid Search
+## P3 - Hybrid Retrieval Alpha/Tau Grid Search ✅ DONE
 
 **What**: 对 alpha (语义权重) 和 tau (时间衰减常数) 进行网格搜索，找到最优参数组合
 
 **Why**: E1 实验用 alpha=0.6, tau=30 达到了 63% 准确率（baseline 23%），但参数是直觉选的。grid search 可能进一步提升
 
-**Status**: 🔲 TODO
+**Status**: ✅ DONE (2026-04-18)
+
+**Grid Search Results (2026-04-18)**:
+
+Phase 1 quick (35 combinations × 20 questions) 确定最佳区域在 alpha=0.3-0.6, tau=15-30。
+Phase 2 确认 Top-3 在完整 133 题上的准确率（string-match 评分）：
+
+| 参数 | 正确率 | Abstain | avg_conf |
+|------|---------|---------|---------|
+| **alpha=0.6, tau=30** | **50/133 (37.6%)** | 7 | 0.547 |
+| alpha=0.3, tau=30 | 46/133 (34.6%) | 12 | 0.631 |
+| alpha=0.4, tau=15 | 40/133 (30.1%) | 26 | 0.527 |
+
+**E1 Baseline**: alpha=1.0, tau=30 → 27.1%
+**最佳组合**: alpha=0.6, tau=30 → **37.6%** (+10.5pp, +39% relative improvement)
+
+**关键发现**:
+1. Pure semantic (alpha=1.0) 始终最差，hybrid retrieval 显著优于纯语义检索
+2. alpha=0.6, tau=30 abstention 最少（仅 7 题），confidence 分布健康
+3. alpha=0.4, tau=15 abstention 最高（26 题），可能是 tau 太小导致时间惩罚过强
+4. tau 在 30 附近最优（30天 ≈ 一个月，符合 temporal-reasoning 问题的语义）
+
+**脚本**: `scripts/grid_search_alpha_tau.py`
 
 **Effort**: S (human: 30min / CC: 15min)
-
-**Priority**: P3
-
-**Depends on**: 133 题嵌入缓存完成 (data/longmemeval/embed_cache/)
-
-**Plan**: 跑 alpha=[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0] × tau=[7, 15, 30, 60, 90]，对比 accuracy
