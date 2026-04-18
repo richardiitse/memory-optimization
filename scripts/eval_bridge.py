@@ -71,7 +71,7 @@ def build_flight_record(
             'candidates': candidates,
             'kg_snapshot': {
                 'total_entities': len(index.entity_ids),
-                'embedding_dim': len(index.embeddings[0]) if index.embeddings else 0,
+                'embedding_dim': len(index.embeddings[0]) if index.embeddings and index.embeddings[0] else 0,
             },
         },
         reader={

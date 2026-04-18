@@ -207,6 +207,7 @@ class LongMemEvalAdapter:
         texts = [entity.content for entity in qi.entities]
         emb_results = self.client.embed_batch(texts)
 
+        # First pass: collect embeddings and determine dimension
         for entity, emb in zip(qi.entities, emb_results):
             entity.embedding = emb
             entity_ids.append(entity.entity_id)
@@ -215,10 +216,16 @@ class LongMemEvalAdapter:
                     embedding_dim = len(emb)
                 embeddings.append(emb)
             else:
-                # Zero vector fallback — derive dim from first successful embedding
-                fallback_dim = embedding_dim if embedding_dim > 0 else 0
-                embeddings.append([0.0] * fallback_dim)
+                embeddings.append(None)
             entity_map[entity.entity_id] = entity
+
+        # Second pass: fill None fallbacks with zero vectors of correct dim
+        if embedding_dim == 0 and any(e is None for e in embeddings):
+            raise RuntimeError(f"All embeddings failed for question {qi.question_id}")
+        embeddings = [
+            emb if emb is not None else [0.0] * embedding_dim
+            for emb in embeddings
+        ]
 
         index = EmbeddingIndex(
             question_id=qi.question_id,
