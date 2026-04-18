@@ -1,8 +1,7 @@
 """Tests for QA Reader — retrieval and reading logic."""
 
-import json
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from longmemeval_adapter import (
     QuestionInstance, TurnEntity, EmbeddingIndex,

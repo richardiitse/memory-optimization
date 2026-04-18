@@ -2,8 +2,7 @@
 
 import json
 import pytest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+from unittest.mock import MagicMock
 
 from longmemeval_adapter import QuestionInstance, TurnEntity, EmbeddingIndex
 from qa_reader import ReaderResult, RetrievalResult

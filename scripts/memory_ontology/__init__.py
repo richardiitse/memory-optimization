@@ -14,7 +14,6 @@ Backward-compatible re-exports for existing imports.
 
 # Re-export from config module
 from .config import (
-    load_env_file,
     SCRIPT_DIR,
     WORKSPACE_ROOT,
     ONTOLOGY_DIR,
@@ -111,7 +110,6 @@ from .retrieval import (
 
 __all__ = [
     # config
-    'load_env_file',
     'SCRIPT_DIR',
     'WORKSPACE_ROOT',
     'ONTOLOGY_DIR',

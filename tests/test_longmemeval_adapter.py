@@ -2,14 +2,11 @@
 
 import json
 import pytest
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from longmemeval_adapter import (
     LongMemEvalAdapter,
     QuestionInstance,
-    TurnEntity,
     parse_longmemeval_date,
     QUESTION_TYPES,
 )
