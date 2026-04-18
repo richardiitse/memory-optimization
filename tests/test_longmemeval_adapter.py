@@ -312,8 +312,8 @@ class TestValidation:
         qi.entities = qi.entities[:2]
 
         # First embed succeeds, second fails
-        # This way the fallback can derive dim from the first successful one
-        client.embed.side_effect = [[0.5, 0.5, 0.5], None]
+        # embed_batch returns list of results parallel to input texts
+        client.embed_batch.return_value = [[0.5, 0.5, 0.5], None]
 
         index = adapter.build_embedding_index(qi)
 
