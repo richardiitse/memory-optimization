@@ -183,7 +183,7 @@ class LongMemEvalAdapter:
     def build_embedding_index(self, qi: QuestionInstance) -> EmbeddingIndex:
         """Pre-compute embeddings for all entities in a question instance.
 
-        Uses LLMClient.embed() for per-entity embedding calls.
+        Uses LLMClient.embed_batch() for parallel batch embedding.
         Failed embeddings get a zero vector derived from the first
         successful embedding dimension.
 
@@ -203,8 +203,11 @@ class LongMemEvalAdapter:
         entity_map = {}
         embedding_dim = 0
 
-        for entity in qi.entities:
-            emb = self.client.embed(entity.content)
+        # Batch embed all entities in parallel
+        texts = [entity.content for entity in qi.entities]
+        emb_results = self.client.embed_batch(texts)
+
+        for entity, emb in zip(qi.entities, emb_results):
             entity.embedding = emb
             entity_ids.append(entity.entity_id)
             if emb is not None:

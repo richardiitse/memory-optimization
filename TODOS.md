@@ -215,13 +215,22 @@ python3 scripts/entity_dedup.py stats
 
 ---
 
-## P4 - Embedding 批量优化
+## P4 - Embedding 批量优化 ✅ DONE
 
 **What**: LongMemEval qa_reader 的 embedding 调用改为批量接口
 
 **Why**: 当前逐条调用 `client.embed()`，每个 entity 一次 API 请求。500 questions × 平均 20 entities = ~10,000 次 embedding 调用，串行执行耗时过长。Phase 4 可引入 batch embed 接口，单次请求处理多个文本。
 
-**Status**: 🔲 TODO
+**Status**: ✅ DONE (2026-04-18)
+
+**Implementation**:
+- `scripts/utils/llm_client.py` - 新增 `embed_batch()` 方法
+  - 使用 `ThreadPoolExecutor` 并行化 I/O 密集型 embed 调用
+  - `max_workers=8`（可配置）
+  - 降级：单文本或 `max_workers<=1` 时串行执行
+- `scripts/longmemeval_adapter.py` - `build_embedding_index()` 改为调用 `embed_batch()`
+- `tests/test_longmemeval_adapter.py` - 更新 zero-vector fallback 测试
+- `tests/test_eval_bridge.py` - 更新 3 个 mock 测试
 
 **Effort**: S
 

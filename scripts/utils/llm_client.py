@@ -30,6 +30,7 @@ import os
 import random
 import time
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from typing import Dict, List, Optional, Tuple
@@ -341,6 +342,53 @@ class LLMClient:
         except Exception as e:
             logger.error("Error computing embedding: %s", e)
             return None
+
+    def embed_batch(
+        self,
+        texts: List[str],
+        max_workers: int = 8,
+    ) -> List[Optional[List[float]]]:
+        """Compute embedding vectors for multiple texts in parallel.
+
+        Uses ThreadPoolExecutor to parallelize I/O-bound embed calls.
+        Falls back to sequential if max_workers == 1.
+
+        Args:
+            texts: List of texts to embed
+            max_workers: Max concurrent requests (default 8)
+
+        Returns:
+            List of embedding vectors (parallel to input texts),
+            None for any failed embedding
+        """
+        if not texts:
+            return []
+
+        if len(texts) == 1:
+            return [self.embed(texts[0])]
+
+        results: List[Optional[List[float]]] = [None] * len(texts)
+
+        if max_workers <= 1:
+            # Sequential fallback
+            for i, text in enumerate(texts):
+                results[i] = self.embed(text)
+            return results
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {
+                executor.submit(self.embed, text): i
+                for i, text in enumerate(texts)
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    results[idx] = future.result()
+                except Exception as e:
+                    logger.error("embed_batch[%d] failed: %s", idx, e)
+                    results[idx] = None
+
+        return results
 
     # ========== Mock ==========
 

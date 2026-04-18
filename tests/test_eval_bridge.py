@@ -188,6 +188,8 @@ class TestEvalPipeline:
         """EvalPipeline.run_single should return (ReaderResult, FlightRecord)."""
         embed_client = MagicMock()
         embed_client.embed.return_value = [1.0, 0.0, 0.0, 0.0]
+        # build_embedding_index calls embed_batch — mock it too
+        embed_client.embed_batch.return_value = [[1.0, 0.0, 0.0, 0.0]] * 10
 
         reader_client = MagicMock()
         reader_client.call.return_value = "Blue"
@@ -214,6 +216,7 @@ class TestEvalPipeline:
         """EvalPipeline.run should process multiple questions."""
         embed_client = MagicMock()
         embed_client.embed.return_value = [1.0, 0.0, 0.0, 0.0]
+        embed_client.embed_batch.return_value = [[1.0, 0.0, 0.0, 0.0]] * 10
 
         reader_client = MagicMock()
         reader_client.call.return_value = "answer"
@@ -233,11 +236,10 @@ class TestEvalPipeline:
     def test_pipeline_abstention_below_threshold(self):
         """Pipeline should abstain when retrieval score is below threshold."""
         embed_client = MagicMock()
-        # Low similarity embedding → low retrieval score
-        embed_client.embed.side_effect = [
-            [1.0, 0.0, 0.0, 0.0],  # query embedding
-            [0.01, 0.01, 0.01, 0.01],  # entity embedding (low sim)
-        ]
+        # Query embedding (Retriever.retrieve calls embed(question))
+        embed_client.embed.return_value = [1.0, 0.0, 0.0, 0.0]
+        # Entity embeddings via batch (low similarity to query)
+        embed_client.embed_batch.return_value = [[0.01, 0.01, 0.01, 0.01]] * 10
 
         reader_client = MagicMock()
 
