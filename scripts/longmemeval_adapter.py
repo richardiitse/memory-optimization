@@ -355,7 +355,7 @@ def _write_embedded_output(
             'answer': qi.answer,
             'is_abstention': qi.is_abstention,
             'n_entities': len(qi.entities),
-            'embedding_dim': len(idx.embeddings[0]) if idx.embeddings else 0,
+            'embedding_dim': len(idx.embeddings[0]) if idx.embeddings and idx.embeddings[0] else 0,
         }
         output_data.append(entry)
     with open(output_path, 'w', encoding='utf-8') as f:
