@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.5] - 2026-04-18
+
+### Added
+
+- **Test Coverage Sprint**: +37 tests across 3 new test files (`test_filter_temporal_questions.py`, `test_evaluate_with_llm.py`, `test_grid_search_alpha_tau.py`). Coverage improved from 56% to 59%.
+
+### Changed
+
+- **eval_bridge tests**: Added `TestPrintReport` class with 3 tests for `print_report()`.
+- **qa_reader tests**: Added `test_temporal_proximity_invalid_date_format` and `test_retrieve_skips_zero_embeddings` for full coverage.
+
 ## [1.0.4] - 2026-04-03
 
 ### Changed

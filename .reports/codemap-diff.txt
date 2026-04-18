@@ -1,38 +1,19 @@
-# Codemap Diff Report
-Generated: 2026-04-05
+Codemap Generation Report — 2026-04-18 (updated P4)
+=====================================================
 
-## Summary
-- **Action:** Codemap expansion - added data.md, dependencies.md
-- **Files modified:** 3 codemap files
+Status: Incremental update after P4 embed_batch
 
-## Changes
+Files scanned: 62 Python files (same as initial scan)
 
-| File | Change |
-|------|--------|
-| architecture.md | Added freshness header |
-| data.md | NEW - Data model documentation |
-| dependencies.md | NEW - External dependencies |
+Architecture changes since initial generation:
+  + LLMClient.embed_batch() — ThreadPoolExecutor parallel embed (max_workers=8)
+  + build_embedding_index() now calls embed_batch() instead of per-entity embed()
+  + filter_temporal_questions.py — eval utility script (standalone)
+  + grid_search_alpha_tau.py — P3 grid search script (standalone)
 
-## Key Changes Since Last Codemap
-- Added 23 new tests for llm_client.py (47% → 95% coverage)
-- Bug fix in preference_engine.py (judge_task_similarity missing else branch)
-- Total tests: 385 passed
+New test files (not in source codemap):
+  tests/test_filter_temporal_questions.py — 6 tests, 134 lines
+  tests/test_evaluate_with_llm.py — 16 tests, 264 lines
+  tests/test_grid_search_alpha_tau.py — 15 tests, 158 lines
 
-## Codemap Status
-| File | Status |
-|------|--------|
-| architecture.md | ✓ Current |
-| data.md | ✓ New (2026-04-05) |
-| dependencies.md | ✓ New (2026-04-05) |
-
-## Coverage Status
-| File | Coverage |
-|------|----------|
-| llm_client.py | 95% |
-| storage.py | 93% |
-| entity_ops.py | 68% |
-| archived_memory_store.py | 41% |
-| TOTAL | 59% |
-
-## Staleness Warnings
-None - all codemaps updated 2026-04-05
+Staleness warnings: None (updated same day)
