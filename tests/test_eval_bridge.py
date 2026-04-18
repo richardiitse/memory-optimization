@@ -256,3 +256,42 @@ class TestEvalPipeline:
         assert result.hypothesis == "I don't know"
         # Reader LLM should NOT be called when abstaining
         reader_client.call.assert_not_called()
+
+
+class TestPrintReport:
+    """Tests for print_report function."""
+
+    def test_print_report_empty(self, capsys):
+        """Should handle empty results gracefully."""
+        from eval_bridge import print_report
+        questions = []
+        results = []
+        print_report(results, questions)
+        captured = capsys.readouterr()
+        assert 'Total questions: 0' in captured.out
+
+    def test_print_report_single_type(self, capsys):
+        """Should show per-type breakdown."""
+        from eval_bridge import print_report
+        q1 = make_question(qid='q1', qtype='temporal-reasoning')
+        r1 = ReaderResult(
+            question_id='q1', hypothesis='blue', confidence=0.8,
+            abstained=False, n_retrieved=5, top_score=0.8, timing_ms=100,
+        )
+        print_report([r1], [q1])
+        captured = capsys.readouterr()
+        assert 'temporal-reasoning' in captured.out
+        assert 'Total questions: 1' in captured.out
+
+    def test_print_report_abstention_grouping(self, capsys):
+        """Should group abstention questions separately."""
+        from eval_bridge import print_report
+        q_abs = make_question(qid='q1_abs', qtype='single-session-user', is_abs=True)
+        r_abs = ReaderResult(
+            question_id='q1_abs', hypothesis="I don't know", confidence=0.1,
+            abstained=True, n_retrieved=5, top_score=0.1, timing_ms=50,
+        )
+        print_report([r_abs], [q_abs])
+        captured = capsys.readouterr()
+        assert 'abstention' in captured.out
+

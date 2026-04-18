@@ -324,6 +324,51 @@ class TestRetriever:
         results = retriever.retrieve("query", qi, index)
         assert len(results) == 1
 
+    def test_temporal_proximity_invalid_date_format(self):
+        """Invalid date format should return 0.0 (not raise)."""
+        client = MagicMock()
+        retriever = Retriever(client=client)
+        # Malformed date → should not raise, returns 0.0
+        prox = retriever._temporal_proximity(
+            "not-a-date", "2023-04-10T23:07", tau=30,
+        )
+        assert prox == 0.0
+
+    def test_retrieve_skips_zero_embeddings(self):
+        """Entities with all-zero embeddings should be skipped."""
+        client = MagicMock()
+        client.embed.return_value = [1.0, 0.0, 0.0, 0.0]
+        retriever = Retriever(client=client, top_k=10)
+
+        qi = make_question()
+        # Index with one normal embedding and one zero embedding
+        e1 = TurnEntity(
+            entity_id='e1', role='user', content='content 1',
+            session_id='s1', session_date='2023-04-10T17:50',
+            question_id='test_1', question_type='single-session-user',
+            turn_index=0,
+        )
+        e2 = TurnEntity(
+            entity_id='e2', role='user', content='content 2',
+            session_id='s1', session_date='2023-04-10T17:50',
+            question_id='test_1', question_type='single-session-user',
+            turn_index=1,
+        )
+        index = EmbeddingIndex(
+            question_id='test_1',
+            entity_ids=['e1', 'e2'],
+            embeddings=[
+                [0.5, 0.5, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],  # all zeros → skipped
+            ],
+            entity_map={'e1': e1, 'e2': e2},
+        )
+
+        results = retriever.retrieve("query", qi, index)
+        # Only e1 should appear (e2 has all-zero embedding)
+        assert len(results) == 1
+        assert results[0].entity.entity_id == 'e1'
+
 
 # ========== Reader ==========
 
