@@ -21,3 +21,9 @@ ontology/graph.lock
 
 # LongMemEval data files (large, downloaded separately)
 data/longmemeval/*.json
+
+# Local settings (contains credentials)
+.claude/settings.local.json
+
+# MCP config (contains local paths)
+.mcp.json

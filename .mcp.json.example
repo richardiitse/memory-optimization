@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "memory": {
+      "command": "python3",
+      "args": ["scripts/ai_wiki_mcp_server.py"],
+      "env": {
+        "PYTHONPATH": "scripts",
+        "AI_WIKI_PATH": "/path/to/Ai-wiki"
+      }
+    }
+  }
+}

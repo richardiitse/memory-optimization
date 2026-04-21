@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.1.0] - 2026-04-21
+
+### Added
+
+- **MCP Memory Server** (`scripts/ai_wiki_mcp_server.py`): Claude Code MCP integration exposing 6 tools for semantic retrieval with metacognitive query enhancement. Supports stdio and streamable-http transports.
+- **Semantic Retriever** (`scripts/semantic_retriever.py`): Hybrid scoring engine (alpha * semantic + (1-alpha) * temporal) with Maximal Marginal Relevance (MMR) diversification over KG entities. Model-aware embedding cache with parallel batch embedding.
+- **Metacog Enhancer** (`scripts/metacog_enhancer.py`): Bias-aware query enhancement using 5 cognitive bias patterns from AI-wiki self-layer files. Generates Chinese challenge questions for each matched bias.
+- **Tests**: `test_ai_wiki_mcp_server.py`, `test_semantic_retriever.py`, `test_bias_keywords.py`, `test_e2e_metacognition.py`, `test_anthropic_backend.py` additions.
+- **`.mcp.json.example`**: Template config for MCP server integration.
+
+### Changed
+
+- **`llm_client.py`**: Refactored `call()` to eliminate ~150 lines of duplicate code across MiniMax/DashScope/OpenAI backends. Added `_detect_backend()`, `_build_request()`, `_parse_response()`. Ollama localhost detection. Embeddings guard against empty choices.
+- **`eval_bridge.py`**: Prioritizes `READER_*` environment variables over `OPENAI_*` for reader model selection.
+- **`utils/__init__.py`**: Added `load_dotenv()` for centralized `.env` loading.
+
+### Security
+
+- **KG_PATH validation**: `resolve()` + `relative_to()` whitelist prevents path traversal. `ALLOW_ANY_KG_DIR` bypass for development.
+- **HTTP transport**: Binds to `127.0.0.1` only (not `0.0.0.0`).
+- **`.mcp.json`**: Added to `.gitignore` to prevent local path leakage.
+- **`.claude/settings.local.json`**: Added to `.gitignore`.
+- **UTF-8 truncation**: Binary search (O(n log n)) replaces quadratic while-loop, safe for multibyte Chinese characters.
+
 ## [1.0.5] - 2026-04-18
 
 ### Added
