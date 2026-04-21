@@ -93,6 +93,26 @@ class TestDetectBackend:
             )
         assert client._backend == 'openai'
 
+    def test_127_0_0_1_detected_as_ollama(self):
+        from utils.llm_client import LLMClient
+
+        with patch.dict('os.environ', {}, clear=True):
+            client = LLMClient(
+                base_url='http://127.0.0.1:11434/v1',
+                api_key='',
+            )
+        assert client._backend == 'ollama'
+
+    def test_localhost_detected_as_ollama(self):
+        from utils.llm_client import LLMClient
+
+        with patch.dict('os.environ', {}, clear=True):
+            client = LLMClient(
+                base_url='http://localhost:11434/v1',
+                api_key='',
+            )
+        assert client._backend == 'ollama'
+
 
 class TestBuildRequestAnthropic:
     """Tests for _build_request() with Anthropic backends"""
@@ -215,7 +235,7 @@ class TestParseResponseAnthropic:
 
         response_json = {'content': []}
         result = client._parse_response(response_json)
-        assert result == ''
+        assert result is None
 
     def test_parse_anthropic_multiple_blocks(self):
         from utils.llm_client import LLMClient
@@ -234,6 +254,32 @@ class TestParseResponseAnthropic:
         }
         result = client._parse_response(response_json)
         assert result == 'The answer is 42'
+
+    def test_parse_openai_empty_choices(self):
+        from utils.llm_client import LLMClient
+
+        with patch.dict('os.environ', {}, clear=True):
+            client = LLMClient(
+                base_url='https://api.openai.com/v1',
+                api_key='test',
+            )
+
+        response_json = {'choices': []}
+        result = client._parse_response(response_json)
+        assert result is None
+
+    def test_parse_openai_missing_message(self):
+        from utils.llm_client import LLMClient
+
+        with patch.dict('os.environ', {}, clear=True):
+            client = LLMClient(
+                base_url='https://api.openai.com/v1',
+                api_key='test',
+            )
+
+        response_json = {'choices': [{'finish_reason': 'stop'}]}
+        result = client._parse_response(response_json)
+        assert result in (None, '')  # graceful degradation
 
 
 class TestCallAnthropicIntegration:
@@ -355,6 +401,21 @@ class TestLoadDotenv:
             assert os.environ.get('VALID_VAR') == 'works'
             assert 'KEY_ONLY_NO_EQUALS' not in os.environ
             del os.environ['VALID_VAR']
+
+    def test_load_dotenv_empty_value_set(self):
+        """KEY= (empty) should set env var to '' to distinguish from not set."""
+        from utils import load_dotenv
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env_file = Path(tmpdir) / '.env'
+            env_file.write_text('TEST_EMPTY_VAR=\n')
+
+            os.environ.pop('TEST_EMPTY_VAR', None)
+            load_dotenv(str(env_file))
+
+            assert 'TEST_EMPTY_VAR' in os.environ
+            assert os.environ['TEST_EMPTY_VAR'] == ''
+            del os.environ['TEST_EMPTY_VAR']
 
     def test_load_dotenv_auto_walk_finds_env(self):
         """Test that load_dotenv() without path walks up to find .env."""

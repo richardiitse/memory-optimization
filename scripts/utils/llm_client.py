@@ -75,11 +75,11 @@ class LLMClient:
         base_url: Optional[str] = None,
         model: Optional[str] = None,
     ):
-        self.api_key = api_key or os.environ.get('OPENAI_API_KEY', '')
-        self.base_url = base_url or os.environ.get(
+        self.api_key = api_key if api_key is not None else os.environ.get('OPENAI_API_KEY', '')
+        self.base_url = base_url if base_url is not None else os.environ.get(
             'OPENAI_BASE_URL', self.DEFAULT_BASE_URL
         )
-        self.model = model or os.environ.get('OPENAI_MODEL', self.DEFAULT_MODEL)
+        self.model = model if model is not None else os.environ.get('OPENAI_MODEL', self.DEFAULT_MODEL)
         self.embed_base_url = os.environ.get(
             'OPENAI_EMBED_BASE_URL', self.DEFAULT_EMBED_BASE_URL
         )
@@ -97,7 +97,7 @@ class LLMClient:
         Returns one of: 'ollama', 'minimax_anthropic', 'dashscope_anthropic', 'openai'
         """
         url = self.base_url.lower()
-        if url.startswith('http://localhost'):
+        if url.startswith('http://localhost') or url.startswith('http://127.0.0.1'):
             return 'ollama'
         if 'minimaxi' in url and 'anthropic' in url:
             return 'minimax_anthropic'
@@ -177,12 +177,12 @@ class LLMClient:
             for block in response_json.get('content', []):
                 if block.get('type') == 'text':
                     return block.get('text', '')
-            return ''
+            return None
         else:
             # OpenAI format: {"choices": [{"message": {"content": "..."}}]}
             choices = response_json.get('choices', [])
             if not choices:
-                return ''
+                return None
             msg = choices[0].get('message', {})
             return msg.get('content', '')
 
@@ -298,7 +298,7 @@ class LLMClient:
         Returns:
             List of floats (embedding vector), or None on failure
         """
-        is_local = self.embed_base_url.startswith('http://localhost')
+        is_local = self.embed_base_url.startswith('http://localhost') or self.embed_base_url.startswith('http://127.0.0.1')
         if not is_local and not self.api_key:
             warnings.warn("No API key — cannot compute embedding")
             return None
