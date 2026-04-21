@@ -72,6 +72,7 @@ SkillCard is a high-value knowledge card distilled from entities (Decision, Less
 | Phase 6 | Memory Loader (proactive recovery) | ✅ Done |
 | Phase 7 | Memory Dashboard (health visualization) | ✅ Done |
 | Phase 8 | Write-Time Gating + Cold Storage | ✅ Done |
+| Phase 9 | MCP Memory Server + Semantic Retrieval | ✅ Done |
 
 ## Features
 
@@ -86,6 +87,9 @@ SkillCard is a high-value knowledge card distilled from entities (Decision, Less
 | **Memory Loader** | 3-stage proactive memory recovery at startup |
 | **Memory Dashboard** | Health score, strength histogram, decay forecast |
 | **Daily Cleanup** | 3-minute automated maintenance |
+| **MCP Memory Server** | Claude Code MCP integration with semantic retrieval and metacognitive enhancement |
+| **Semantic Retriever** | Hybrid scoring (semantic + temporal) with MMR diversification |
+| **Metacog Enhancer** | Cognitive bias detection and query enhancement for bias-aware retrieval |
 
 ## Quick Start
 
@@ -215,12 +219,17 @@ memory-optimization/
 │   ├── working_memory.py       # Context compression
 │   ├── memory_loader.py       # Staged recovery
 │   ├── memory_dashboard.py     # Health dashboard
-│   └── utils/llm_client.py   # Unified LLM/embedding client
-├── tests/                      # Test suite (151 tests)
+│   ├── ai_wiki_mcp_server.py   # MCP Memory Server (Claude Code integration)
+│   ├── semantic_retriever.py   # Hybrid scoring + MMR diversification
+│   ├── metacog_enhancer.py     # Cognitive bias detection + query enhancement
+│   ├── eval_bridge.py          # LongMemEval evaluation bridge
+│   ├── qa_reader.py            # QA retrieval reader
+│   └── utils/llm_client.py   # Unified LLM/embedding client (4 backends)
+├── tests/                      # Test suite (650+ tests)
 ├── ontology/                   # KG schema & templates
 └── references/                 # Implementation docs
 ```
 
 ## Version
 
-Current: **1.0.2** — See [CHANGELOG.md](CHANGELOG.md) for full history.
+Current: **1.0.6** — See [CHANGELOG.md](CHANGELOG.md) for full history.

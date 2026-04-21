@@ -144,6 +144,39 @@ python3 scripts/memory_dashboard.py compact
 python3 scripts/memory_dashboard.py json
 ```
 
+### MCP Memory Server (semantic retrieval + metacog)
+```bash
+# Start MCP server (stdio transport, for Claude Code integration)
+python3 scripts/ai_wiki_mcp_server.py
+
+# Start with HTTP transport (for testing)
+python3 scripts/ai_wiki_mcp_server.py --transport streamable-http --port 8765
+
+# Pre-compute embeddings for all KG entities (run once after startup)
+# Use the embed_all_entities tool via MCP, or:
+python3 -c "
+import sys; sys.path.insert(0, 'scripts')
+from ai_wiki_mcp_server import _init; _init()
+from ai_wiki_mcp_server import _retriever
+print(_retriever.embed_entities(), 'entities embedded')
+"
+```
+
+MCP config (`.mcp.json`):
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "command": "python3",
+      "args": ["scripts/ai_wiki_mcp_server.py"],
+      "env": { "PYTHONPATH": "scripts" }
+    }
+  }
+}
+```
+
+MCP tools exposed: `search_with_metacognition`, `get_entity_details`, `get_related_entities`, `reload_metacog_context`, `memory_stats`, `embed_all_entities`.
+
 ### Run Tests
 ```bash
 # Run all tests
@@ -199,9 +232,14 @@ memory-optimization/
 │   ├── working_memory.py       # Phase 5: Context Window layered compression
 │   ├── memory_loader.py        # Phase 6: Proactive memory recovery (staged loading)
 │   ├── memory_dashboard.py     # Phase 7: Memory health dashboard
+│   ├── ai_wiki_mcp_server.py   # MCP Memory Server (semantic retrieval + metacog)
+│   ├── semantic_retriever.py   # Hybrid scoring + MMR diversification over KG
+│   ├── metacog_enhancer.py     # Cognitive bias detection + query enhancement
+│   ├── eval_bridge.py          # LongMemEval evaluation pipeline bridge
+│   ├── qa_reader.py            # QA retrieval reader
 │   ├── utils/
-│   │   ├── __init__.py         # Shared utilities package
-│   │   └── llm_client.py       # Unified LLM client
+│   │   ├── __init__.py         # Shared utilities + load_dotenv
+│   │   └── llm_client.py       # Unified LLM client (4 backends)
 │   └── README.md               # Scripts documentation
 ├── tests/
 │   ├── test_benchmark.py       # Benchmark framework tests
@@ -212,7 +250,14 @@ memory-optimization/
 │   ├── test_entity_dedup.py   # Entity deduplication tests
 │   ├── test_working_memory.py # Working memory tests
 │   ├── test_memory_loader.py  # Memory loader tests
-│   └── test_memory_dashboard.py  # Memory dashboard tests
+│   ├── test_memory_dashboard.py  # Memory dashboard tests
+│   ├── test_ai_wiki_mcp_server.py  # MCP server tools + KG path validation
+│   ├── test_semantic_retriever.py   # Hybrid scoring + MMR tests
+│   ├── test_bias_keywords.py        # Cognitive bias pattern tests
+│   ├── test_e2e_metacognition.py    # End-to-end metacog pipeline tests
+│   ├── test_anthropic_backend.py    # LLM client backend tests
+│   ├── test_eval_bridge.py          # Eval pipeline bridge tests
+│   └── ... (see tests/ for full list)
 ├── ontology/
 │   ├── memory-schema.yaml      # KG entity schema
 │   ├── graph.jsonl             # KG data (gitignored)

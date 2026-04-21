@@ -295,9 +295,9 @@ def main():
     # Embedding client: uses Ollama qwen3-embedding (local, no auth)
     embed_client = LLMClient()
 
-    # Reader client: uses OPENAI_BASE_URL if set, otherwise MiniMax API
-    reader_base_url = args.base_url or os.environ.get('OPENAI_BASE_URL') or os.environ.get('READER_BASE_URL', 'https://api.minimaxi.com/anthropic/v1')
-    reader_model = args.reader_model or os.environ.get('OPENAI_MODEL') or os.environ.get('READER_MODEL', 'MiniMax-M2.7-highspeed')
+    # Reader client: READER_BASE_URL/MODEL take priority over OPENAI_*
+    reader_base_url = args.base_url or os.environ.get('READER_BASE_URL') or os.environ.get('OPENAI_BASE_URL', 'https://api.minimaxi.com/anthropic/v1')
+    reader_model = args.reader_model or os.environ.get('READER_MODEL') or os.environ.get('OPENAI_MODEL', 'MiniMax-M2.7-highspeed')
     reader_api_key = args.api_key or os.environ.get('MINIMAX_API_KEY') or os.environ.get('OPENAI_API_KEY', '')
 
     reader_client = LLMClient(

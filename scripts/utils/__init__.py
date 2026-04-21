@@ -3,7 +3,7 @@
 import math
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:
@@ -16,8 +16,11 @@ def cosine_similarity(a: List[float], b: List[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-def load_dotenv(env_path: str = None) -> None:
+def load_dotenv(env_path: Optional[str] = None) -> None:
     """Load environment variables from a .env file.
+
+    Empty values (KEY=) are set to '' in os.environ to distinguish
+    "explicitly empty" from "not set at all".
 
     Args:
         env_path: Explicit path to .env file. If None, searches upward
@@ -51,5 +54,5 @@ def load_dotenv(env_path: str = None) -> None:
             key, value = line.split('=', 1)
             key = key.strip()
             value = value.strip().strip('"').strip("'")
-            if key and value and key not in os.environ:
+            if key and key not in os.environ:
                 os.environ[key] = value
