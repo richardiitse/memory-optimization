@@ -39,8 +39,7 @@ from utils import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-# Load .env once at module import
-load_dotenv()
+_env_loaded = False
 
 
 class LLMClient:
@@ -75,6 +74,11 @@ class LLMClient:
         base_url: Optional[str] = None,
         model: Optional[str] = None,
     ):
+        global _env_loaded
+        if not _env_loaded:
+            load_dotenv()
+            _env_loaded = True
+
         self.api_key = api_key if api_key is not None else os.environ.get('OPENAI_API_KEY', '')
         self.base_url = base_url if base_url is not None else os.environ.get(
             'OPENAI_BASE_URL', self.DEFAULT_BASE_URL
@@ -91,14 +95,20 @@ class LLMClient:
 
     # ========== Backend Detection ==========
 
+    @staticmethod
+    def _is_local(url: str) -> bool:
+        """Check if a URL points to localhost."""
+        lower = url.lower()
+        return lower.startswith('http://localhost') or lower.startswith('http://127.0.0.1')
+
     def _detect_backend(self) -> str:
         """Detect API backend from base_url and env vars.
 
         Returns one of: 'ollama', 'minimax_anthropic', 'dashscope_anthropic', 'openai'
         """
-        url = self.base_url.lower()
-        if url.startswith('http://localhost') or url.startswith('http://127.0.0.1'):
+        if self._is_local(self.base_url):
             return 'ollama'
+        url = self.base_url.lower()
         if 'minimaxi' in url and 'anthropic' in url:
             return 'minimax_anthropic'
         if 'dashscope' in url and 'anthropic' in url:
@@ -292,60 +302,78 @@ class LLMClient:
     def embed(self, text: str) -> Optional[List[float]]:
         """Compute embedding vector for text using the embeddings API.
 
+        Retries on transient errors (429, 5xx) with exponential backoff,
+        matching the retry strategy used by call().
+
         Args:
             text: Text to embed
 
         Returns:
             List of floats (embedding vector), or None on failure
         """
-        is_local = self.embed_base_url.startswith('http://localhost') or self.embed_base_url.startswith('http://127.0.0.1')
+        is_local = self._is_local(self.embed_base_url)
         if not is_local and not self.api_key:
             warnings.warn("No API key — cannot compute embedding")
             return None
 
-        try:
-            headers = {'Content-Type': 'application/json'}
-            if self.api_key and not is_local:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+        headers = {'Content-Type': 'application/json'}
+        if self.api_key and not is_local:
+            headers['Authorization'] = f'Bearer {self.api_key}'
 
-            # Ollama uses 'prompt', OpenAI-compatible APIs use 'input'
-            if is_local:
-                payload = {'model': self.embed_model, 'prompt': text}
-            else:
-                payload = {'model': self.embed_model, 'input': text}
+        # Ollama uses 'prompt', OpenAI-compatible APIs use 'input'
+        if is_local:
+            payload = {'model': self.embed_model, 'prompt': text}
+        else:
+            payload = {'model': self.embed_model, 'input': text}
 
-            response = requests.post(
-                f'{self.embed_base_url}/embeddings',
-                headers=headers,
-                json=payload,
-                timeout=self.EMBED_TIMEOUT_SECONDS,
-                proxies={'http': None, 'https': None} if is_local else None,
-            )
+        backoff = 1.0
+        for attempt in range(self.MAX_RETRIES + 1):
+            try:
+                response = requests.post(
+                    f'{self.embed_base_url}/embeddings',
+                    headers=headers,
+                    json=payload,
+                    timeout=self.EMBED_TIMEOUT_SECONDS,
+                    proxies={'http': None, 'https': None} if is_local else None,
+                )
 
-            if response.status_code == 200:
-                result = response.json()
-                # OpenAI format: {"data":[{"embedding": [...]}]}
-                # Ollama format: {"embedding": [...]}
-                if 'data' in result:
-                    return result['data'][0]['embedding']
-                elif 'embedding' in result:
-                    return result['embedding']
-                else:
-                    logger.error(
-                        "Embedding error: unexpected response format: %s",
-                        response.text[:200],
-                    )
-                    return None
-            else:
+                if response.status_code == 200:
+                    return self._parse_embed_response(response.json())
+
+                if response.status_code in self.TRANSIENT_CODES and attempt < self.MAX_RETRIES:
+                    jitter = random.uniform(0, 0.5 * backoff)
+                    time.sleep(backoff + jitter)
+                    backoff = min(backoff * 2, self.MAX_BACKOFF_SECONDS)
+                    continue
+
                 logger.error(
                     "Embedding error: API returned %d: %s",
                     response.status_code, response.text[:200],
                 )
                 return None
 
-        except Exception as e:
-            logger.error("Error computing embedding: %s", e)
-            return None
+            except Exception as e:
+                if attempt < self.MAX_RETRIES:
+                    jitter = random.uniform(0, 0.5 * backoff)
+                    time.sleep(backoff + jitter)
+                    backoff = min(backoff * 2, self.MAX_BACKOFF_SECONDS)
+                    continue
+                logger.error("Error computing embedding after %d retries: %s", self.MAX_RETRIES, e)
+                return None
+
+        return None
+
+    @staticmethod
+    def _parse_embed_response(result: Dict) -> Optional[List[float]]:
+        """Parse embedding from API response (OpenAI or Ollama format)."""
+        if 'data' in result:
+            data = result['data']
+            if not data:
+                return None
+            return data[0].get('embedding')
+        if 'embedding' in result:
+            return result['embedding']
+        return None
 
     def embed_batch(
         self,

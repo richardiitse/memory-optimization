@@ -145,17 +145,21 @@ def search_with_metacognition(query: str, top_k: int = 10) -> str:
         JSON with original_query, enhanced_query, matched_biases, and results.
     """
     top_k = max(1, min(top_k, 100))
-    if not _retriever or not _enhancer:
-        missing = []
-        if not _retriever:
-            missing.append("retriever")
-        if not _enhancer:
-            missing.append("enhancer")
-        return json.dumps({"error": f"Server not initialized: missing {', '.join(missing)}"})
+    if not _retriever:
+        return json.dumps({"error": "Server not initialized: retriever unavailable"})
 
-    enhancement = _enhancer.enhance(query)
+    if _enhancer:
+        enhancement = _enhancer.enhance(query)
+        search_query = enhancement.enhanced_query
+        matched_biases = enhancement.matched_biases
+        challenge_questions = enhancement.challenge_questions
+    else:
+        search_query = query
+        matched_biases = []
+        challenge_questions = []
+
     results = _retriever.search(
-        enhancement.enhanced_query, top_k=top_k, mmr_lambda=0.7,
+        search_query, top_k=top_k, mmr_lambda=0.7,
     )
 
     out_results = []
@@ -175,9 +179,9 @@ def search_with_metacognition(query: str, top_k: int = 10) -> str:
 
     return json.dumps({
         "original_query": query,
-        "enhanced_query": enhancement.enhanced_query,
-        "matched_biases": enhancement.matched_biases,
-        "challenge_questions": enhancement.challenge_questions,
+        "enhanced_query": search_query,
+        "matched_biases": matched_biases,
+        "challenge_questions": challenge_questions,
         "results": out_results,
         "total_entities": len(_retriever.entities),
     }, ensure_ascii=False, indent=2)

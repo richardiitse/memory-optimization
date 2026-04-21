@@ -1,13 +1,21 @@
 """Shared utilities for memory optimization scripts."""
 
+import logging
 import math
 import os
 from pathlib import Path
 from typing import List, Optional
 
+logger = logging.getLogger(__name__)
+
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:
     """Compute cosine similarity between two vectors."""
+    if len(a) != len(b):
+        logger.warning(
+            "Dimension mismatch in cosine_similarity: %d vs %d", len(a), len(b)
+        )
+        return 0.0
     dot = sum(x * y for x, y in zip(a, b))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
