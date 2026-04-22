@@ -286,10 +286,93 @@ class HermesJSONLParser:
 
     @staticmethod
     def scan_directory(agents_sessions_dir: Path) -> List[Path]:
-        """扫描 Hermes sessions 目录下的所有 JSON 文件（消息内容在 *.json，非 *.jsonl）"""
+        """扫描 Hermes sessions 目录下的 session_*.json 文件"""
         json_files = []
         if agents_sessions_dir.exists() and agents_sessions_dir.is_dir():
-            json_files.extend(agents_sessions_dir.glob('*.json'))
+            json_files.extend(agents_sessions_dir.glob('session_*.json'))
+        return sorted(json_files)
+
+
+class HermesSessionParser:
+    """解析 Hermes session_*.json 文件
+
+    Hermes session 格式（JSON 对象，非 JSONL）：
+    - 顶层字段：session_id, model, platform, messages, system_prompt 等
+    - messages 是包含 role/content 的数组
+    - content 可以是 str 或 list（text/thinking/tool_use 等 parts）
+    """
+
+    @staticmethod
+    def parse_file(file_path: Path) -> Optional[Conversation]:
+        """解析单个 Hermes session JSON 文件"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            messages = []
+            session_id = data.get('session_id', file_path.stem)
+
+            for msg in data.get('messages', []):
+                role = msg.get('role')
+                if role not in ('user', 'assistant', 'tool'):
+                    continue
+
+                content = HermesSessionParser._extract_content(msg.get('content', ''))
+                timestamp = msg.get('timestamp', '')
+
+                if role == 'tool':
+                    role = 'assistant'  # 工具返回归为 assistant
+
+                if not content.strip():
+                    continue
+
+                messages.append(Message(
+                    role=role,
+                    content=content,
+                    timestamp=timestamp,
+                    session_id=session_id,
+                    message_id=msg.get('id', ''),
+                ))
+
+            if not messages:
+                return None
+
+            return Conversation(
+                session_id=session_id,
+                messages=messages,
+                timestamp=data.get('session_start', ''),
+            )
+
+        except Exception as e:
+            print(f"Warning: Failed to parse {file_path}: {e}")
+            return None
+
+    @staticmethod
+    def _extract_content(content) -> str:
+        """从 content 字段提取文本"""
+        if not content:
+            return ''
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for part in content:
+                if isinstance(part, dict):
+                    if part.get('type') == 'text':
+                        parts.append(part.get('text', ''))
+                    elif part.get('type') == 'thinking':
+                        thinking = part.get('thinking', '')
+                        if thinking:
+                            parts.append(f"[思考]: {thinking}")
+            return '\n'.join(parts)
+        return str(content)
+
+    @staticmethod
+    def scan_directory(agents_sessions_dir: Path) -> List[Path]:
+        """扫描 Hermes sessions 目录下的 session_*.json 文件"""
+        json_files = []
+        if agents_sessions_dir.exists() and agents_sessions_dir.is_dir():
+            json_files.extend(agents_sessions_dir.glob('session_*.json'))
         return sorted(json_files)
 
 
@@ -845,7 +928,7 @@ def main():
     # 确定目录和解析器
     if args.hermes_dir:
         agents_dir = args.hermes_dir
-        parser_class = HermesJSONLParser
+        parser_class = HermesSessionParser
         print("🚀 KG Extractor (Hermes 模式)")
     else:
         agents_dir = args.agents_dir

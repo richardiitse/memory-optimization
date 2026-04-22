@@ -92,11 +92,11 @@ class LLMClient:
         _api_key = _file_key if (len(_file_key) >= 100) else _dotenv_key
         if _debug:
             print(f"[DEBUG LLMClient] _file_key_len={len(_file_key)}, _dotenv_key_len={len(_dotenv_key)}, _api_key_len={len(_api_key) if _api_key else 0}")
-        self.api_key = api_key if api_key is not None else _api_key
-        self.base_url = base_url if base_url is not None else os.environ.get(
+        self.api_key = api_key if (api_key is not None and api_key != '') else _api_key
+        self.base_url = base_url if (base_url is not None and base_url != '') else os.environ.get(
             'OPENAI_BASE_URL', self.DEFAULT_BASE_URL
         )
-        self.model = model if model is not None else os.environ.get('OPENAI_MODEL', self.DEFAULT_MODEL)
+        self.model = model if (model is not None and model != '') else os.environ.get('OPENAI_MODEL', self.DEFAULT_MODEL)
         self.embed_base_url = os.environ.get(
             'OPENAI_EMBED_BASE_URL', self.DEFAULT_EMBED_BASE_URL
         )
