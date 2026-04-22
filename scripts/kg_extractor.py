@@ -286,11 +286,11 @@ class HermesJSONLParser:
 
     @staticmethod
     def scan_directory(agents_sessions_dir: Path) -> List[Path]:
-        """扫描 Hermes sessions 目录下的所有 JSONL 文件"""
-        jsonl_files = []
+        """扫描 Hermes sessions 目录下的所有 JSON 文件（消息内容在 *.json，非 *.jsonl）"""
+        json_files = []
         if agents_sessions_dir.exists() and agents_sessions_dir.is_dir():
-            jsonl_files.extend(agents_sessions_dir.glob('*.jsonl'))
-        return sorted(jsonl_files)
+            json_files.extend(agents_sessions_dir.glob('*.json'))
+        return sorted(json_files)
 
 
 # ========== 2. Message Filter ==========

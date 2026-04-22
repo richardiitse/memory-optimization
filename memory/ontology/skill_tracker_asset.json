@@ -1,0 +1,189 @@
+{
+  "name": "skill_tracker_usage_data",
+  "description": "AI agent skill usage tracking data - 164 records showing usage patterns",
+  "version": "1.0.0",
+  "created": "2026-03-31T01:12:37.740955",
+  "entity_count": 164,
+  "entities": [
+    {
+      "id": "skill_45bcdc7e",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "coding-agent",
+        "category": "coding",
+        "status": "success",
+        "duration_seconds": 2.5,
+        "error": null
+      },
+      "tags": [
+        "#coding-agent",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:07:20.962283",
+      "updated": "2026-03-30T10:07:20.962283"
+    },
+    {
+      "id": "skill_4addc46b",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "weather",
+        "category": "utility",
+        "status": "success",
+        "duration_seconds": null,
+        "error": null
+      },
+      "tags": [
+        "#weather",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:07:23.719627",
+      "updated": "2026-03-30T10:07:23.719627"
+    },
+    {
+      "id": "skill_3cac0073",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "weather",
+        "category": "utility",
+        "status": "success",
+        "duration_seconds": null,
+        "error": null
+      },
+      "tags": [
+        "#weather",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:07:23.750981",
+      "updated": "2026-03-30T10:07:23.750981"
+    },
+    {
+      "id": "skill_7076c60b",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "notion",
+        "category": "api",
+        "status": "success",
+        "duration_seconds": null,
+        "error": null
+      },
+      "tags": [
+        "#notion",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:07:23.777422",
+      "updated": "2026-03-30T10:07:23.777422"
+    },
+    {
+      "id": "skill_06ffe9e4",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "coding-agent",
+        "category": "coding",
+        "status": "failed",
+        "duration_seconds": null,
+        "error": "timeout"
+      },
+      "tags": [
+        "#coding-agent",
+        "#failed",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:07:23.803650",
+      "updated": "2026-03-30T10:07:23.803650"
+    },
+    {
+      "id": "skill_27324785",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "clawhub",
+        "category": "system",
+        "status": "success",
+        "duration_seconds": null,
+        "error": null
+      },
+      "tags": [
+        "#clawhub",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:22:52.095624",
+      "updated": "2026-03-30T10:22:52.095624"
+    },
+    {
+      "id": "skill_5a9dfa4c",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "capability-evolver",
+        "category": "memory",
+        "status": "success",
+        "duration_seconds": null,
+        "error": null
+      },
+      "tags": [
+        "#capability-evolver",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:22:52.095772",
+      "updated": "2026-03-30T10:22:52.095772"
+    },
+    {
+      "id": "skill_f32ac8a3",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "capability-evolver",
+        "category": "memory",
+        "status": "success",
+        "duration_seconds": null,
+        "error": null
+      },
+      "tags": [
+        "#capability-evolver",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:22:52.095996",
+      "updated": "2026-03-30T10:22:52.095996"
+    },
+    {
+      "id": "skill_1681af36",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "capability-evolver",
+        "category": "memory",
+        "status": "success",
+        "duration_seconds": null,
+        "error": null
+      },
+      "tags": [
+        "#capability-evolver",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:22:52.096049",
+      "updated": "2026-03-30T10:22:52.096049"
+    },
+    {
+      "id": "skill_f7f2d99b",
+      "type": "SkillUsage",
+      "properties": {
+        "skill_name": "capability-evolver",
+        "category": "memory",
+        "status": "success",
+        "duration_seconds": null,
+        "error": null
+      },
+      "tags": [
+        "#capability-evolver",
+        "#success",
+        "#skill-usage"
+      ],
+      "created": "2026-03-30T10:22:52.096095",
+      "updated": "2026-03-30T10:22:52.096095"
+    }
+  ]
+}

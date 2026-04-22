@@ -158,7 +158,7 @@ def load_all_relations() -> List[Dict]:
 
                 try:
                     operation = json.loads(line)
-                    if operation['op'] == 'relate':
+                    if operation.get('op') == 'relate':
                         relations.append(operation)
                 except json.JSONDecodeError:
                     continue

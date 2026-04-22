@@ -295,6 +295,35 @@ Add the following to OpenClaw's `settings.json` or `skills.json`:
 
 After configuration, the user can activate this skill by typing `/xmo`.
 
+## kg_extractor 操作注意事项
+
+### macOS API Key 过滤问题
+macOS 会把通过 shell `echo`/`cat` 写入 `.env` 文件的 API Key 替换成 `***`。不要用 shell 写入 key，改用：
+- Python 文件写入：`python3 -c "open('.env','w').write('KEY=val')"`
+- 单独的 key 文件（如 `~/.hermes/.minimax_key`），让 `llm_client.py` 读取回退
+
+### kg_extractor Session 文件格式陷阱（关键 bug）
+`HermesJSONLParser` 扫描 `.jsonl` 文件，但这些文件是**元数据格式**（无 `content` 字段），只有 `role/platform/model/timestamp/tools`。实际消息内容在对应的 `.json` 文件中。
+
+**当前 kg_extractor.py 有 bug**：`HermesJSONLParser.scan_directory()` (line 288-293) 扫描的是 `*.jsonl`，导致提取不到任何消息内容。
+
+需要修复：`scripts/kg_extractor.py` 第 292 行：
+```python
+# 错误（当前）
+jsonl_files.extend(agents_sessions_dir.glob('*.jsonl'))
+# 正确
+jsonl_files.extend(agents_sessions_dir.glob('*.json'))
+```
+
+正确运行方式（修复后）：
+```bash
+cd ~/.hermes/skills/openclaw-imports/memory-optimization
+KG_DIR=memory/ontology/ LLM_CLIENT_DEBUG=1 PYTHONPATH=scripts python3 scripts/kg_extractor.py --hermes-dir ~/.hermes/sessions/ --limit 3
+```
+
+### kg_extractor API Key 调试
+设置 `LLM_CLIENT_DEBUG=1` 环境变量可以看到 key 加载过程（`_file_key_len`、`_dotenv_key_len`、`_api_key_len`）。正常情况：`LLMClient.__init__` 时 `_api_key_len=125`（125字符 key）。如果 `kg_extractor` 仍报 "No API key"，检查是否有第二个 `LLMClient` 实例（`api_key=None`）被创建。
+
 ## Next Steps
 
 1. Run test script: `./memory/test-memory-system.sh`

@@ -31,6 +31,7 @@ import random
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 import requests
 from typing import Dict, List, Optional, Tuple
@@ -74,12 +75,24 @@ class LLMClient:
         base_url: Optional[str] = None,
         model: Optional[str] = None,
     ):
+        # Load API key: read from file FIRST (before load_dotenv pollutes env with *** from macOS privacy filter)
+        # Then load dotenv, but always prefer file key if it's valid (125 chars from macOS-filtered MINIMAX_CN_API_KEY)
+        _key_file = Path.home() / '.hermes' / '.minimax_key'
+        _file_key = _key_file.read_text().strip() if _key_file.exists() else ''
+
+        _debug = os.environ.get('LLM_CLIENT_DEBUG', '')
+
         global _env_loaded
         if not _env_loaded:
             load_dotenv()
             _env_loaded = True
 
-        self.api_key = api_key if api_key is not None else os.environ.get('OPENAI_API_KEY', '')
+        _dotenv_key = os.environ.get('MINIMAX_CN_API_KEY', '')
+        # Use file key if valid (125 chars), otherwise use dotenv key
+        _api_key = _file_key if (len(_file_key) >= 100) else _dotenv_key
+        if _debug:
+            print(f"[DEBUG LLMClient] _file_key_len={len(_file_key)}, _dotenv_key_len={len(_dotenv_key)}, _api_key_len={len(_api_key) if _api_key else 0}")
+        self.api_key = api_key if api_key is not None else _api_key
         self.base_url = base_url if base_url is not None else os.environ.get(
             'OPENAI_BASE_URL', self.DEFAULT_BASE_URL
         )

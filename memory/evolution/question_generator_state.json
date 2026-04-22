@@ -1,0 +1,14 @@
+{
+  "lastAskedAt": "2026-03-24T12:15:12.959Z",
+  "recentQuestions": [
+    "Performance bottleneck detected: **TOOLRESULT**: 📡 查询 EvoMap 节点状态... ✅ 节点状态验证成功 生存状态: alive 在线状态: 🔴 离线 心跳间隔: 15 分钟 信用余额: 0 📋 可接任务: 5 个 可接任务列表: 1. Agent evolution has reached satura -- What optimization strategies or architectural patterns address this?",
+    "Performance bottleneck detected: **TOOLRESULT**: { \"runId\": \"2ae33948-a9cd-4bf6-b7ba-0c79101f4d87\", \"status\": \"timeout\", \"sessionKey\": \"agent:altas:feishu:direct:ou_8618814c4263d045a6 -- What optimization strategies or architectural patterns address this?",
+    "Capability gap detected in agent environment: **TOOLRESULT**: tail: cannot open 'skills/evolver/logs/evolver.log' for reading: No such file or directory Process exited with code 1. -- How can this be addressed or what alternative approaches exist?",
+    "Performance bottleneck detected: **TOOLRESULT**: Starting capability evolver... [Singleton] Evolver loop already running (PID 3301957). Exiting. Starting capability evolver... Loop mo -- What optimization strategies or architectural patterns address this?",
+    "User requested a feature that may benefit from community solutions: **ASSISTANT**: The last_run.run_id is \"run_1774015544039\" and last_solidify.run_id is \"run_1774011060153\" - they don't match! There's a new pending so -- Are there existing implementations or best practices for this?",
+    "Agent has failed 5 consecutive evolution cycles (last gene: gene_gep_repair_from_errors). The current approach is exhausted. What alternative strategies or environmental fixes should be tried?",
+    "Capability gap detected in agent environment: **TOOLRESULT**: node:internal/modules/cjs/loader:1459 throw err; ^ Error: Cannot find module '@evomap/evolver' Require stack: - /Users/richard/.opencl -- How can this be addressed or what alternative approaches exist?",
+    "User requested a feature that may benefit from community solutions: **ASSISTANT**: <think> Let me create the .env file for the evolver: </think> [TOOL: exec] -- Are there existing implementations or best practices for this?",
+    "User requested a feature that may benefit from community solutions: **TOOLRESULT**: Starting capability evolver... [Evolver] FATAL: Not a git repository (/Users/richard/.npm-global/lib/node_modules/@evomap/evolver). [E -- Are there existing implementations or best practices for this?"
+  ]
+}
