@@ -587,14 +587,14 @@ class ConsolidationEngine:
 
             # Phase 8: Gate the consolidated entity
             from memory_ontology import gate_entity
-            gate_result = gate_entity(skillcard_id, source_type='consolidation')
+            gate_result = gate_entity(skillcard_id, source_type='consolidation_engine')
             if gate_result:
                 if gate_result['status'] == 'ARCHIVE':
                     # Archive low-value consolidated entities
                     from memory_ontology import archive_entity_to_cold_storage
                     archive_entity_to_cold_storage(
                         skillcard_id,
-                        reason='low_significance',
+                        reason='superseded',
                         significance_score=gate_result['score'],
                         strength=1.0
                     )

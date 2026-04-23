@@ -422,7 +422,7 @@ types:
         description: "标签列表"
 
   MemorySource:
-    required: [id, source_type, reliability, use_count, last_used]
+    required: [source_type, reliability, use_count, last_used]
     properties:
       source_type:
         type: string
@@ -451,7 +451,7 @@ types:
         description: "标签列表"
 
   GatingPolicy:
-    required: [id, threshold, auto_archive_below, enabled, updated_at]
+    required: [threshold, auto_archive_below, enabled, updated_at]
     properties:
       id:
         type: string
@@ -492,7 +492,7 @@ types:
         description: "标签列表"
 
   ArchivedMemory:
-    required: [id, original_id, archived_reason, archived_at, cold_storage_path]
+    required: [original_id, archived_reason, archived_at, cold_storage_path]
     properties:
       original_id:
         type: string

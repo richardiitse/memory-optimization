@@ -60,7 +60,7 @@ def archive_entity_to_cold_storage(entity_id: str, reason: str,
         'significance_score_at_archive': significance_score,
         'strength_at_archive': strength,
         'access_count': 0,
-        'last_accessed': None,
+        'last_accessed': '',
         'tags': ['#archived', f'#{reason}']
     }
 
