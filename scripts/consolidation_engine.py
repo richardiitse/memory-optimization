@@ -606,7 +606,7 @@ class ConsolidationEngine:
             self._mark_consolidated(entity1['id'], skillcard_id)
             self._mark_consolidated(entity2['id'], skillcard_id)
 
-            return skillcard
+            return {'action': 'merge', 'entity': skillcard}
 
         elif decision.decision == "conflict":
             if dry_run:
@@ -633,7 +633,7 @@ class ConsolidationEngine:
 
             conflict = self._create_entity('ConflictReview', conflict_props, entity_id=conflict_id)
 
-            return conflict
+            return {'action': 'conflict', 'entity': conflict}
 
         else:  # keep_separate
             return None
